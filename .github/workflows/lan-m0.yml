@@ -23,6 +23,9 @@ jobs:
       - name: Test real HTTP sockets without Android
         run: bash tools/lan-probe/tests/run.sh
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Install pinned SDK
         run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
       - name: Build isolated probe and lint

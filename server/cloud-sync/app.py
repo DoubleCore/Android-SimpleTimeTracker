@@ -217,7 +217,7 @@ class Application:
                 raise ApiError(401, 'unauthorized')
             method, path = env['REQUEST_METHOD'], env['PATH_INFO']
             if method == 'GET' and path == '/v1/health':
-                status, body = 200, dict(protocol=1, workspace_id=self.store.workspace_id)
+                status, body = 200, dict(protocol=1, workspace_id=self.store.workspace_id, capabilities=["native_records_v1"])
             elif method == 'GET' and path == '/v1/sync':
                 params = parse_qs(env.get('QUERY_STRING', ''), keep_blank_values=True)
                 raw = params.get('after', ['0'])

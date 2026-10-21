@@ -11,6 +11,11 @@ public final class CloudSync {
         CloudHttp.Response health = http.request(url, token, "/v1/health", null);
         requireOk(health); store.verifyWorkspace(health.body);
         for (JSONObject op : store.pending()) {
+            String kind = op.optString("kind");
+            if ((kind.startsWith("put_") || kind.equals("delete_session")) &&
+                    !health.body.optString("capabilities", "").contains("native_records_v1")) {
+                throw new IOException("服务器正在等待升级，正式应用记录已保留在本机，升级后自动补传");
+            }
             CloudHttp.Response response = http.request(url, token, "/v1/operations", op);
             if (response.status == 200) {
                 store.verifyWorkspace(response.body);

@@ -10,10 +10,10 @@ import java.security.MessageDigest;
 import java.util.UUID;
 
 /** Kept in Android's private no-backup directory; never placed in logs, URLs or APKs. */
-final class CloudConfig {
-    String url = "", token = "", device = UUID.randomUUID().toString();
+public final class CloudConfig {
+    public String url = "", token = "", device = UUID.randomUUID().toString();
     private final AtomicFile file;
-    CloudConfig(Context context) throws Exception {
+    public CloudConfig(Context context) throws Exception {
         file = new AtomicFile(new File(context.getNoBackupFilesDir(), "stt-cloud-config.json"));
         if (file.getBaseFile().exists()) {
             JSONObject saved = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
@@ -29,7 +29,7 @@ final class CloudConfig {
         catch (Exception e) { file.failWrite(out); throw e; }
         url = normalized; token = secret;
     }
-    String databaseName() throws Exception {
+    public String databaseName() throws Exception {
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(url.getBytes(StandardCharsets.UTF_8));
         StringBuilder name = new StringBuilder("stt-cloud-");
         for (byte b : digest) name.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));

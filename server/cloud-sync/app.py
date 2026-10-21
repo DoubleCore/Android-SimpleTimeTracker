@@ -41,6 +41,7 @@ class Store:
         with self.connect() as db:
             db.execute('PRAGMA journal_mode=WAL')
             db.executescript('''
+                CREATE TABLE IF NOT EXISTS entity_extra(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS activities(id TEXT PRIMARY KEY, name TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS sessions(
@@ -88,7 +89,9 @@ class Store:
             raise ApiError(400, 'invalid_operation')
         kind = op.get('kind')
         keys = {'id', 'device_id', 'kind', 'occurred_at'}
-        if kind == 'activity':
+        if kind in {'put_activity', 'put_session', 'delete_session'}:
+            keys |= {'data'}
+        elif kind == 'activity':
             keys |= {'activity_id', 'name'}
         elif kind == 'start':
             keys |= {'activity_id', 'session_id'}
@@ -132,6 +135,40 @@ class Store:
 
     @staticmethod
     def apply(db, op):
+        if op['kind'] in {'put_activity', 'put_session', 'delete_session'}:
+            data = op['data']
+            if not isinstance(data, dict):
+                raise ApiError(400, 'invalid_data')
+            entity_id = identifier(data.get('id'))
+            if op['kind'] == 'put_activity':
+                if not isinstance(data.get('name'), str) or not 1 <= len(data['name'].strip()) <= 80:
+                    raise ApiError(400, 'invalid_name')
+                db.execute('INSERT INTO activities VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name',
+                           (entity_id, data['name'].strip()))
+                entity = 'activity'
+            else:
+                activity_id = identifier(data.get('activity_id'))
+                started, ended = data.get('started_at'), data.get('ended_at')
+                if type(started) is not int or started < 946684800000 or started > int(time.time()*1000)+60000:
+                    raise ApiError(400, 'invalid_clock')
+                if ended is not None and (type(ended) is not int or ended < started or ended > int(time.time()*1000)+60000):
+                    raise ApiError(400, 'invalid_clock')
+                if not db.execute('SELECT 1 FROM activities WHERE id=?', (activity_id,)).fetchone():
+                    raise ApiError(409, 'activity_missing')
+                if op['kind'] == 'delete_session':
+                    db.execute('DELETE FROM sessions WHERE id=?', (entity_id,))
+                    data = dict(data, deleted=True)
+                else:
+                    existing = db.execute('SELECT ended_at FROM sessions WHERE id=?', (entity_id,)).fetchone()
+                    if ended is None and existing and existing['ended_at'] is not None:
+                        raise ApiError(409, 'session_already_stopped')
+                    if ended is None and db.execute('SELECT 1 FROM sessions WHERE activity_id=? AND ended_at IS NULL AND id!=?', (activity_id, entity_id)).fetchone():
+                        raise ApiError(409, 'activity_already_running')
+                    db.execute('INSERT INTO sessions VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET activity_id=excluded.activity_id,started_at=excluded.started_at,ended_at=excluded.ended_at',
+                               (entity_id, activity_id, started, ended))
+                entity = 'session'
+            db.execute('INSERT OR REPLACE INTO entity_extra VALUES(?,?)', (entity_id, encode(data)))
+            return dict(entity=entity, data=data)
         if op['kind'] == 'activity':
             if db.execute('SELECT 1 FROM activities WHERE id=?', (op['activity_id'],)).fetchone():
                 raise ApiError(409, 'activity_exists')
@@ -158,7 +195,9 @@ class Store:
                 return None  # Another device stopped this exact session; never stop a newer one.
             if op['occurred_at'] < row['started_at']:
                 raise ApiError(409, 'stop_before_start')
-            data = dict(row)
+            extra = db.execute('SELECT payload FROM entity_extra WHERE id=?', (row['id'],)).fetchone()
+            data = json.loads(extra[0]) if extra else {}
+            data.update(dict(row))
             data['ended_at'] = op['occurred_at']
             db.execute('UPDATE sessions SET ended_at=? WHERE id=?',
                        (data['ended_at'], data['id']))

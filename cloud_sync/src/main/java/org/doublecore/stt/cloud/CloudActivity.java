@@ -75,7 +75,7 @@ public final class CloudActivity extends Activity {
             if (name.isEmpty() || name.length() > 80) { message("活动名需要 1～80 个字符"); return; }
             enqueue("activity", UUID.randomUUID().toString(), null, name);
         });
-        text(root, "页面打开时自动同步；离线操作会保留，重新打开后补传。此入口的记录独立于旧版手机历史。", 12);
+        text(root, "页面打开时自动同步；离线操作会保留，重新打开后补传。正式手机端会将记录接入计时历史和统计。", 12);
         render();
     }
     @Override protected void onStart() { super.onStart(); foreground = true; if (status != null) sync(); }
@@ -152,10 +152,11 @@ public final class CloudActivity extends Activity {
             Map<String, JSONObject> sessions = store.view("sessions");
             if (activities.isEmpty()) text(content, "先在任一设备创建活动，另一端会自动同步。", 15);
             for (JSONObject activity : activities.values()) {
+                if (activity.optBoolean("hidden")) continue;
                 String id = activity.getString("id"), name = activity.getString("name");
                 JSONObject running = null;
                 for (JSONObject session : sessions.values()) {
-                    if (id.equals(session.getString("activity_id")) && session.isNull("ended_at")) running = session;
+                    if (!session.optBoolean("deleted") && id.equals(session.getString("activity_id")) && session.isNull("ended_at")) running = session;
                 }
                 if (running == null) {
                     button(content, "开始 · " + name + (activity.optBoolean("pending") ? "（待同步）" : ""),
@@ -178,7 +179,7 @@ public final class CloudActivity extends Activity {
             }
             text(content, "最近记录（最多显示 50 条）", 18);
             List<JSONObject> history = new ArrayList<>();
-            for (JSONObject session : sessions.values()) if (!session.isNull("ended_at")) history.add(session);
+            for (JSONObject session : sessions.values()) if (!session.optBoolean("deleted") && !session.isNull("ended_at")) history.add(session);
             java.util.Collections.sort(history, (a, b) -> Long.compare(b.optLong("started_at"), a.optLong("started_at")));
             for (int i = 0; i < Math.min(50, history.size()); i++) {
                 JSONObject item = history.get(i), activity = activities.get(item.getString("activity_id"));

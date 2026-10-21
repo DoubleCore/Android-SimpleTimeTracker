@@ -25,17 +25,27 @@ class MainActivity : BaseActivity<Binding>() {
     @Inject
     lateinit var router: Router
 
+    @Inject lateinit var cloudBridge: com.example.util.simpletimetracker.cloud.NativeCloudBridge
+    private val cloudHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val cloudStatus = object : Runnable {
+        override fun run() { binding.cloudSyncStatus.text = cloudBridge.status + " · 设置"; cloudHandler.postDelayed(this, 2000) }
+    }
+    override fun onPause() { cloudHandler.removeCallbacks(cloudStatus); super.onPause() }
     private val viewModel: MainActivityViewModel by viewModels()
 
     override fun onResume() {
         super.onResume()
         router.bind(this)
         viewModel.onVisible()
+        cloudHandler.removeCallbacks(cloudStatus); cloudHandler.post(cloudStatus)
     }
 
     override fun initUi() {
         router.bind(this)
         router.onCreate(this)
+        binding.cloudSyncStatus.setOnClickListener {
+            startActivity(android.content.Intent(this, org.doublecore.stt.cloud.CloudSettingsActivity::class.java))
+        }
     }
 
     override fun initViewModel() = with(viewModel) {

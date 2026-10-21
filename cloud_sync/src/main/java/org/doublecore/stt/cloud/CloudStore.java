@@ -37,6 +37,14 @@ public final class CloudStore extends SQLiteOpenHelper {
         ContentValues values = new ContentValues(); values.put("k", key); values.put("v", value);
         db.insertWithOnConflict("meta", null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
+    public synchronized void setMeta(String key, String value) {
+        putMeta(getWritableDatabase(), key, value);
+    }
+    public synchronized void enqueueWithMeta(JSONObject op, String key, String value) throws JSONException {
+        SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
+        try { enqueue(op); putMeta(db, key, value); db.setTransactionSuccessful(); }
+        finally { db.endTransaction(); }
+    }
     public synchronized void verifyWorkspace(JSONObject response) throws JSONException {
         if (response.getInt("protocol") != 1) throw new JSONException("服务器协议不兼容");
         String id = response.getString("workspace_id");
@@ -113,6 +121,13 @@ public final class CloudStore extends SQLiteOpenHelper {
         }
         for (JSONObject op : pending()) {
             String kind = op.getString("kind");
+            if ((table.equals("activities") && kind.equals("put_activity")) ||
+                (table.equals("sessions") && (kind.equals("put_session") || kind.equals("delete_session")))) {
+                JSONObject data = new JSONObject(op.getJSONObject("data").toString());
+                if (kind.equals("delete_session")) data.put("deleted", true);
+                result.put(data.getString("id"), data);
+                continue;
+            }
             if (table.equals("activities") && kind.equals("activity")) {
                 result.put(op.getString("activity_id"), new JSONObject().put("id", op.getString("activity_id"))
                         .put("name", op.getString("name")).put("pending", true));

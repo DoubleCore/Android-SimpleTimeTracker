@@ -1,8 +1,5 @@
 name: Cloud sync
 on:
-  push:
-    branches: ['feature/xiaomi-watch5-lan-v159']
-    paths: ['server/cloud-sync/**', 'cloud_sync/**', 'tools/cloud-app/**', '.github/workflows/cloud-sync.yml', 'app/build.gradle.kts', 'wear/build.gradle.kts', 'settings.gradle.kts']
   pull_request:
     paths: ['server/cloud-sync/**', 'cloud_sync/**', 'tools/cloud-app/**', '.github/workflows/cloud-sync.yml', 'app/build.gradle.kts', 'wear/build.gradle.kts', 'settings.gradle.kts']
   workflow_dispatch:

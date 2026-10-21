@@ -20,4 +20,6 @@ dependencies {
     implementation(project(":cloud_sync"))
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("junit:junit:4.13.2")
+    // AndroidX test storage calls Kotlin even when the production app is Java-only.
+    androidTestImplementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.25")
 }

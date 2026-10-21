@@ -1,0 +1,6 @@
+{$STT_DOMAIN} {
+    request_body {
+        max_size 8KB
+    }
+    reverse_proxy api:8765
+}

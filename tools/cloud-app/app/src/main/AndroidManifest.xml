@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:allowBackup="false" android:supportsRtl="true"
+        android:usesCleartextTraffic="false" android:label="STT 云同步"
+        android:theme="@android:style/Theme.Material.NoActionBar" />
+</manifest>

@@ -60,6 +60,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":cloud_sync"))
     implementation(project(":wear_api"))
     implementation(project(":resources"))
     implementation(project(":domain:common"))

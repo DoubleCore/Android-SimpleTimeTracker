@@ -1,0 +1,28 @@
+services:
+  api:
+    build: .
+    environment:
+      STT_TOKEN: ${STT_TOKEN:?Run setup.sh first}
+      STT_DB: /data/stt.sqlite3
+    volumes:
+      - stt-data:/data
+    restart: unless-stopped
+    expose: ['8765']
+    read_only: true
+    tmpfs: ['/tmp']
+    security_opt: ['no-new-privileges:true']
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      STT_DOMAIN: ${STT_DOMAIN:?Set the public DNS hostname}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    depends_on: [api]
+volumes:
+  stt-data:
+  caddy-data:
+  caddy-config:

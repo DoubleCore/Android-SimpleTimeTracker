@@ -77,4 +77,69 @@ public final class CloudStoreTest extends TestCase {
             try { CloudHttp.normalize(url); fail("unsafe origin accepted"); } catch (java.io.IOException expected) { }
         }
     }
+
+    public void testSyncNeverDropsQueueOnAuthFailureOrMalformedAck() throws Exception {
+        JSONObject command = operation("activity").put("activity_id", UUID.randomUUID().toString()).put("name", "学习");
+        store.enqueue(command);
+        CloudHttp rejectedAuth = new CloudHttp() {
+            @Override public Response request(String base, String token, String path, JSONObject body) throws Exception {
+                return new Response(401, new JSONObject().put("error", "unauthorized"));
+            }
+        };
+        try { new CloudSync(rejectedAuth).run(store, "https://example.com", "token"); fail("401 accepted"); }
+        catch (java.io.IOException expected) { }
+        assertEquals(1, store.pending().size());
+        CloudHttp malformedAck = new CloudHttp() {
+            @Override public Response request(String base, String token, String path, JSONObject body) throws Exception {
+                JSONObject response = new JSONObject().put("protocol", 1).put("workspace_id", workspace);
+                if (body != null) response.put("accepted", true).put("operation_id", UUID.randomUUID().toString());
+                return new Response(200, response);
+            }
+        };
+        try { new CloudSync(malformedAck).run(store, "https://example.com", "token"); fail("wrong ACK accepted"); }
+        catch (java.io.IOException expected) { }
+        assertEquals(1, store.pending().size());
+    }
+
+    public void testLostAckRetriesSameIdAndEventuallyPullsCanonicalRecord() throws Exception {
+        String activityId = UUID.randomUUID().toString();
+        JSONObject command = operation("activity").put("activity_id", activityId).put("name", "学习");
+        store.enqueue(command);
+        final String[] accepted = {null};
+        final int[] sends = {0};
+        CloudHttp server = new CloudHttp() {
+            @Override public Response request(String base, String token, String path, JSONObject body) throws Exception {
+                if (path.equals("/v1/health")) return new Response(200, new JSONObject().put("protocol", 1).put("workspace_id", workspace));
+                if (body != null) {
+                    sends[0]++;
+                    if (accepted[0] == null) {
+                        accepted[0] = body.getString("id");
+                        throw new java.io.IOException("response lost after server commit");
+                    }
+                    assertEquals(accepted[0], body.getString("id"));
+                    return new Response(200, new JSONObject().put("protocol", 1).put("workspace_id", workspace)
+                            .put("operation_id", accepted[0]).put("accepted", true));
+                }
+                return new Response(200, page(1, new JSONArray().put(event(1, "activity", new JSONObject().put("id", activityId).put("name", "学习")))));
+            }
+        };
+        try { new CloudSync(server).run(store, "https://example.com", "token"); fail("lost response accepted"); }
+        catch (java.io.IOException expected) { }
+        store.close(); store = new CloudStore(getContext(), name);
+        assertTrue(new CloudSync(server).run(store, "https://example.com", "token"));
+        assertEquals(2, sends[0]); assertEquals(0, store.pending().size());
+        assertEquals(1L, store.cursor()); assertEquals(1, store.view("activities").size());
+        assertFalse(store.view("activities").get(activityId).optBoolean("pending"));
+    }
+
+    public void testCloudScreenLaunchesWithoutGoogleServices() throws Exception {
+        android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        android.content.Intent intent = new android.content.Intent(getContext(), CloudActivity.class)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        android.app.Activity activity = instrumentation.startActivitySync(intent);
+        instrumentation.waitForIdleSync();
+        assertNotNull(activity.findViewById(android.R.id.content));
+        instrumentation.runOnMainSync(activity::finish);
+        instrumentation.waitForIdleSync();
+    }
 }

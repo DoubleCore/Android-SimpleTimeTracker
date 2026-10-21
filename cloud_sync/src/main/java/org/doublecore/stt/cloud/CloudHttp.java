@@ -10,7 +10,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /** HTTPS only, platform certificate verification, no credential-bearing redirects. */
-public final class CloudHttp {
+public class CloudHttp {
     public static String normalize(String value) throws Exception {
         URI uri = new URI(value.trim());
         if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null

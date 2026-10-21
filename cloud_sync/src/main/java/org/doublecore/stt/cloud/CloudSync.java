@@ -4,7 +4,9 @@ import org.json.JSONObject;
 import java.io.IOException;
 
 public final class CloudSync {
-    private final CloudHttp http = new CloudHttp();
+    private final CloudHttp http;
+    public CloudSync() { this(new CloudHttp()); }
+    CloudSync(CloudHttp http) { this.http = http; }
     public boolean run(CloudStore store, String url, String token) throws Exception {
         CloudHttp.Response health = http.request(url, token, "/v1/health", null);
         requireOk(health); store.verifyWorkspace(health.body);

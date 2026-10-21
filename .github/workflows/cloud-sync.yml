@@ -22,6 +22,8 @@ jobs:
           python-version: '3.12'
       - name: Server persistence, replay, conflict and real HTTP tests
         run: python -m unittest discover -s server/cloud-sync/tests -v
+      - name: Smoke test deployable server container and restart persistence
+        run: bash server/cloud-sync/tests/container_smoke.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

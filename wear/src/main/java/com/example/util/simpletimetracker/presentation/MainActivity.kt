@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
                 startActivity(android.content.Intent(this, org.doublecore.stt.cloud.LanSettingsActivity::class.java))
             }
         } catch (_: Exception) {
-            startActivity(android.content.Intent(this, org.doublecore.stt.cloud.CloudSettingsActivity::class.java))
+            startActivity(android.content.Intent(this, org.doublecore.stt.cloud.LanSettingsActivity::class.java))
         }
         wearActionResolver.registerResultListeners(this)
 

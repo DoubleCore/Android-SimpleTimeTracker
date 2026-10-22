@@ -146,8 +146,12 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
     suspend fun loadShouldShowTagValueSelection(selectedTagIds: List<Long>,clickedTagId: Long) = Result.success(false)
     suspend fun loadSettings(forceReload: Boolean) = Result.success(WearSettings(BuildConfig.WEAR_API_VERSION,true,false,emptySet(),true,false,0,DayOfWeek.MONDAY))
     suspend fun setSettings(settings: WearSetSettings): Result<Unit> = Result.failure(UnsupportedOperationException("云模式请在手机管理活动"))
-    suspend fun openAppPhone(): Result<Unit> = local {
-        context.startActivity(android.content.Intent(context, if (lan.configured()) LanSettingsActivity::class.java else CloudSettingsActivity::class.java)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    suspend fun openAppPhone(): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            context.startActivity(android.content.Intent(context,
+                if (lan.configured()) LanSettingsActivity::class.java else CloudSettingsActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            Unit
+        }
     }
 }

@@ -5,6 +5,9 @@ import android.util.AtomicFile;
 import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.UUID;
@@ -18,6 +21,17 @@ public final class CloudConfig {
         if (file.getBaseFile().exists()) {
             JSONObject saved = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
             url = saved.getString("url"); token = saved.getString("token"); device = saved.getString("device");
+        } else {
+            // Existing settings always win; never silently switch a configured workspace.
+            try (InputStream input = context.getAssets().open("stt-private-config.json")) {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                byte[] buffer = new byte[1024]; int count;
+                while ((count = input.read(buffer)) != -1) bytes.write(buffer, 0, count);
+                JSONObject preset = new JSONObject(bytes.toString("UTF-8"));
+                save(preset.getString("url"), preset.getString("token"));
+            } catch (FileNotFoundException absent) {
+                // Public builds retain normal connection settings.
+            }
         }
     }
     void save(String address, String secret) throws Exception {

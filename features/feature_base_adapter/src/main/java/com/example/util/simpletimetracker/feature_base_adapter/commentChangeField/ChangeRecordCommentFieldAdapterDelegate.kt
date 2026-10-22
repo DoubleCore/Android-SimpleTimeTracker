@@ -20,6 +20,12 @@ fun createChangeRecordCommentFieldAdapterDelegate(
 
     with(binding) {
         item as ViewData
+        inputChangeRecordCommentField.endIconMode = com.google.android.material.textfield.TextInputLayout.END_ICON_CUSTOM
+        inputChangeRecordCommentField.setEndIconDrawable(android.R.drawable.ic_btn_speak_now)
+        inputChangeRecordCommentField.endIconContentDescription = "语音输入描述"
+        inputChangeRecordCommentField.setEndIconOnClickListener {
+            com.example.util.simpletimetracker.feature_base_adapter.voice.VoiceDescriptionFragment.start(etChangeRecordCommentField)
+        }
 
         if (item.text != null &&
             item.text != etChangeRecordCommentField.text.toString()

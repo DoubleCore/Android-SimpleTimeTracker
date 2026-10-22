@@ -1,0 +1,43 @@
+name: Full phone and Watch APK
+on:
+  push:
+    branches: [feature/xiaomi-watch5-lan-v159]
+    paths: ['server/cloud-sync/**', 'cloud_sync/**', 'app/**', 'wear/**', '.github/workflows/cloud-sync.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: full-apk-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  full-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'platforms;android-35' 'platforms;android-34' 'build-tools;34.0.0' 'build-tools;35.0.0'
+      - name: Build complete phone and native Watch applications
+        run: bash ./gradlew :app:assembleBaseDebug :wear:assembleDebug --no-daemon
+      - name: Package installable APKs
+        run: |
+          mkdir -p delivery
+          cp app/build/outputs/apk/base/debug/*.apk delivery/STT-Phone-Cloud.apk
+          cp wear/build/outputs/apk/debug/*.apk delivery/STT-Watch5-Cloud.apk
+          cp docs/CLOUD_APK.md delivery/INSTALL.md
+          git rev-parse HEAD > delivery/COMMIT.txt
+          cd delivery
+          sha256sum *.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STT-Phone-Watch5-Full-APK
+          path: delivery/
+          if-no-files-found: error

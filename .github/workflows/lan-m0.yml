@@ -1,0 +1,48 @@
+name: LAN M0 probe
+on:
+  push:
+    branches: ['feature/xiaomi-watch5-lan-v159']
+    paths: ['tools/lan-probe/**', '.github/workflows/lan-m0.yml']
+  pull_request:
+    paths: ['tools/lan-probe/**', '.github/workflows/lan-m0.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test real HTTP sockets without Android
+        run: bash tools/lan-probe/tests/run.sh
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install pinned SDK
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Build isolated probe and lint
+        run: bash ./gradlew -p tools/lan-probe :app:assembleDebug :app:lintDebug --no-daemon
+      - name: Package evidence
+        run: |
+          mkdir -p tools/lan-probe/build/delivery
+          cp tools/lan-probe/app/build/outputs/apk/debug/app-debug.apk tools/lan-probe/build/delivery/stt-lan-m0-debug.apk
+          git rev-parse HEAD > tools/lan-probe/build/delivery/COMMIT.txt
+          sha256sum tools/lan-probe/build/delivery/stt-lan-m0-debug.apk > tools/lan-probe/build/delivery/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stt-lan-m0-debug-${{ github.sha }}
+          path: tools/lan-probe/build/delivery/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stt-lan-m0-lint
+          path: tools/lan-probe/app/build/reports/lint-results-debug.*

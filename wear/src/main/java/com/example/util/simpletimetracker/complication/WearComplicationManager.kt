@@ -16,6 +16,7 @@ class WearComplicationManager @Inject constructor(
 ) {
 
     fun updateComplications() {
+        if (!context.packageManager.hasSystemFeature("com.google.android.feature.WEARABLE")) return
         ComplicationDataSourceUpdateRequester.create(
             context = context,
             complicationDataSourceComponent = ComponentName(

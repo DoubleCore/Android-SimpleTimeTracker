@@ -7,3 +7,7 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# Never commit device provisioning secrets
+stt-private-config.json
+/private-delivery/

@@ -96,6 +96,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":cloud_sync"))
     implementation(project(":core"))
     implementation(project(":data_local"))
     implementation(project(":resources"))

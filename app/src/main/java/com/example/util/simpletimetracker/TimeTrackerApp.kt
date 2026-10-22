@@ -11,11 +11,14 @@ import timber.log.Timber.DebugTree
 @HiltAndroidApp
 class TimeTrackerApp : Application() {
 
+    @javax.inject.Inject lateinit var cloudBridge: com.example.util.simpletimetracker.cloud.NativeCloudBridge
+
     override fun onCreate() {
         super.onCreate()
         initLog()
         initLibraries()
         initStrictMode()
+        cloudBridge.start()
     }
 
     private fun initLog() {
@@ -36,7 +39,6 @@ class TimeTrackerApp : Application() {
                 StrictMode.ThreadPolicy.Builder()
                     .detectAll()
                     .penaltyLog()
-                    .penaltyDialog()
                     .build(),
             )
             StrictMode.setVmPolicy(

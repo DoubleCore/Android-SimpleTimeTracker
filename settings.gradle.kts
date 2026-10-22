@@ -34,3 +34,5 @@ file("features").walkTopDown().maxDepth(2).forEach { dir ->
         project(":${dir.parentFile.name}:${dir.name}").projectDir = dir
     }
 }
+
+include(":cloud_sync")

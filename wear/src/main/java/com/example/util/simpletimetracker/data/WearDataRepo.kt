@@ -25,12 +25,28 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var store: CloudStore? = null
     private var address = ""
+    private val lan = LanConnection(context)
+    @Volatile private var lanCache = JSONObject()
+        .put("activities", org.json.JSONArray()).put("sessions", org.json.JSONArray())
+
+    private fun refreshLan() { lanCache = lan.request("GET", "/v1/state", null) }
+    private fun lanObjects(key: String): List<JSONObject> {
+        val items = lanCache.getJSONArray(key)
+        return (0 until items.length()).map { items.getJSONObject(it) }
+    }
+    private fun activityId(value: JSONObject): Long =
+        if (lan.configured()) value.getLong("activity_id") else numeric(value.getString("activity_id"))
+    private fun mappedId(value: JSONObject): Long =
+        if (lan.configured()) value.getLong("id") else numeric(value.getString("id"))
     init {
         scope.launch {
             while (isActive) {
                 try {
                     val config = CloudConfig(context)
-                    if (config.url.isNotEmpty()) {
+                    if (lan.configured()) {
+                        refreshLan()
+                        changes.emit(Unit)
+                    } else if (config.url.isNotEmpty()) {
                         CloudSync().run(database(config), config.url, config.token)
                         changes.emit(Unit)
                     }
@@ -47,12 +63,19 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
         return requireNotNull(store)
     }
     private fun numeric(id: String) = (UUID.fromString(id).mostSignificantBits and 0x0000FFFFFFFFFFFFL) + 1_000_000_000L
-    private fun activities() = database().view("activities").values.filter { !it.optBoolean("hidden") }
-    private fun sessions() = database().view("sessions").values.filter { !it.optBoolean("deleted") }
-    private fun activity(id: Long) = activities().first { numeric(it.getString("id")) == id }
-    private fun mapped(value: JSONObject) = WearActivity(numeric(value.getString("id")), value.getString("name"),
+    private fun activities() = (if (lan.configured()) lanObjects("activities") else database().view("activities").values.toList())
+        .filter { !it.optBoolean("hidden") }
+    private fun sessions() = (if (lan.configured()) lanObjects("sessions") else database().view("sessions").values.toList())
+        .filter { !it.optBoolean("deleted") }
+    private fun activity(id: Long) = activities().first { mappedId(it) == id }
+    private fun mapped(value: JSONObject) = WearActivity(mappedId(value), value.getString("name"),
         value.optString("icon", "ic_book"), 0xff4caf50L)
-    private suspend fun <T> local(action: () -> T): Result<T> = withContext(Dispatchers.IO) { runCatching(action) }
+    private suspend fun <T> local(action: () -> T): Result<T> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (lan.configured()) refreshLan()
+            action()
+        }
+    }
     private fun enqueue(kind: String, activity: String? = null, session: String? = null) {
         val config = CloudConfig(context)
         val op = JSONObject().put("id", UUID.randomUUID().toString()).put("device_id",config.device)
@@ -65,26 +88,47 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
     suspend fun loadCurrentActivities(forceReload: Boolean): Result<WearCurrentState> = local {
         val all = sessions()
         WearCurrentState(all.filter { it.isNull("ended_at") }.map {
-            WearCurrentActivity(numeric(it.getString("activity_id")), it.getLong("started_at"), emptyList())
+            WearCurrentActivity(activityId(it), it.getLong("started_at"), emptyList())
         }, all.filter { !it.isNull("ended_at") }.sortedByDescending { it.getLong("ended_at") }.take(10).map {
-            WearLastRecord(numeric(it.getString("activity_id")),it.getLong("started_at"),it.getLong("ended_at"),emptyList())
+            WearLastRecord(activityId(it),it.getLong("started_at"),it.getLong("ended_at"),emptyList())
         }, emptyList())
     }
     suspend fun startActivity(id: Long, tags: List<WearRecordTag>, useSelectedTags: Boolean): Result<Unit> = local {
-        val uuid = activity(id).getString("id")
-        check(sessions().none { it.getString("activity_id") == uuid && it.isNull("ended_at") }) { "此活动已在计时" }
-        enqueue("start",uuid,UUID.randomUUID().toString())
+        if (lan.configured()) {
+            lan.request("POST", "/v1/action", JSONObject().put("kind", "start").put("activity_id", id))
+            refreshLan(); changes.tryEmit(Unit)
+        } else {
+            val uuid = activity(id).getString("id")
+            check(sessions().none { it.getString("activity_id") == uuid && it.isNull("ended_at") }) { "此活动已在计时" }
+            enqueue("start", uuid, UUID.randomUUID().toString())
+        }
+        Unit
     }
     suspend fun stopActivity(id: Long): Result<Unit> = local {
-        val current = sessions().first { numeric(it.getString("activity_id")) == id && it.isNull("ended_at") }
-        enqueue("stop",session=current.getString("id"))
+        if (lan.configured()) {
+            val current = sessions().first { activityId(it) == id && it.isNull("ended_at") }
+            lan.request("POST", "/v1/action", JSONObject().put("kind", "stop")
+                .put("activity_id", id).put("expected_started_at", current.getLong("started_at")))
+            refreshLan(); changes.tryEmit(Unit)
+        } else {
+            val current = sessions().first { activityId(it) == id && it.isNull("ended_at") }
+            enqueue("stop", session=current.getString("id"))
+        }
+        Unit
     }
     suspend fun repeatActivity(): Result<WearRecordRepeatResult> = local {
         val last = sessions().filter { !it.isNull("ended_at") }.maxByOrNull { it.getLong("ended_at") }
         val result = when {
             last == null -> WearRecordRepeatResult.ActionResult.NoPreviousFound
-            sessions().any { it.getString("activity_id") == last.getString("activity_id") && it.isNull("ended_at") } -> WearRecordRepeatResult.ActionResult.AlreadyTracking
-            else -> { enqueue("start",last.getString("activity_id"),UUID.randomUUID().toString()); WearRecordRepeatResult.ActionResult.Started }
+            sessions().any { activityId(it) == activityId(last) && it.isNull("ended_at") } ->
+                WearRecordRepeatResult.ActionResult.AlreadyTracking
+            else -> {
+                if (lan.configured()) {
+                    lan.request("POST", "/v1/action", JSONObject().put("kind","start").put("activity_id",activityId(last)))
+                    refreshLan(); changes.tryEmit(Unit)
+                } else enqueue("start",last.getString("activity_id"),UUID.randomUUID().toString())
+                WearRecordRepeatResult.ActionResult.Started
+            }
         }
         WearRecordRepeatResult(result)
     }
@@ -95,7 +139,7 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
             (minOf(end,if (it.isNull("ended_at")) System.currentTimeMillis() else it.getLong("ended_at"))-maxOf(begin,it.getLong("started_at"))).coerceAtLeast(0)
         } }
         activities().map(::mapped).map { a -> WearStatistics(a.id,a.name,a.icon,a.color,
-            totals.entries.firstOrNull { numeric(it.key)==a.id }?.value ?: 0L) }.filter { it.duration>0 }
+            totals.entries.firstOrNull { (if (lan.configured()) it.key.toLong() else numeric(it.key))==a.id }?.value ?: 0L) }.filter { it.duration>0 }
     }
     suspend fun loadTagsForActivity(activityId: Long): Result<List<WearTag>> = Result.success(emptyList())
     suspend fun loadShouldShowTagSelection(activityId: Long) = Result.success(WearShouldShowTagSelectionResult(false,emptyList(),emptyList()))
@@ -103,6 +147,7 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
     suspend fun loadSettings(forceReload: Boolean) = Result.success(WearSettings(BuildConfig.WEAR_API_VERSION,true,false,emptySet(),true,false,0,DayOfWeek.MONDAY))
     suspend fun setSettings(settings: WearSetSettings): Result<Unit> = Result.failure(UnsupportedOperationException("云模式请在手机管理活动"))
     suspend fun openAppPhone(): Result<Unit> = local {
-        context.startActivity(android.content.Intent(context,CloudSettingsActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(android.content.Intent(context, if (lan.configured()) LanSettingsActivity::class.java else CloudSettingsActivity::class.java)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }

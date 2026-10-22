@@ -20,6 +20,10 @@ fun SettingsScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.foundation.layout.Column {
         androidx.wear.compose.material.CompactChip(
+            onClick = { context.startActivity(android.content.Intent(context, org.doublecore.stt.cloud.LanSettingsActivity::class.java)) },
+            label = { androidx.wear.compose.material.Text("Wi-Fi直连手机（优先）") },
+        )
+        androidx.wear.compose.material.CompactChip(
             onClick = { context.startActivity(android.content.Intent(context, org.doublecore.stt.cloud.CloudSettingsActivity::class.java)) },
             label = { androidx.wear.compose.material.Text("云同步连接设置") },
         )

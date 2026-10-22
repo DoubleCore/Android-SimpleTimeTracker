@@ -10,11 +10,13 @@ public final class CloudSync {
     public boolean run(CloudStore store, String url, String token) throws Exception {
         CloudHttp.Response health = http.request(url, token, "/v1/health", null);
         requireOk(health); store.verifyWorkspace(health.body);
+        boolean deferred = false;
         for (JSONObject op : store.pending()) {
             String kind = op.optString("kind");
             if ((kind.startsWith("put_") || kind.equals("delete_session")) &&
                     !health.body.optString("capabilities", "").contains("native_records_v1")) {
-                throw new IOException("服务器正在等待升级，正式应用记录已保留在本机，升级后自动补传");
+                deferred = true;
+                continue; // Keep native edits queued, but still download watch records from older servers.
             }
             CloudHttp.Response response = http.request(url, token, "/v1/operations", op);
             if (response.status == 200) {
@@ -31,7 +33,7 @@ public final class CloudSync {
         for (int i = 0; i < 20; i++) {
             CloudHttp.Response page = http.request(url, token, "/v1/sync?after=" + store.cursor(), null);
             requireOk(page); store.applyPage(page.body);
-            if (!page.body.getBoolean("has_more")) return true;
+            if (!page.body.getBoolean("has_more")) return !deferred;
         }
         return false;
     }

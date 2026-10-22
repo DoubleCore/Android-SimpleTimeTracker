@@ -81,7 +81,7 @@ class NativeCloudBridge @Inject constructor(
             db.enqueueWithMeta(op, "native_seen", nextSeen.toString())
             seen.put(key, value)
         }
-        CloudSync().run(db, config.url, config.token)
+        val complete = CloudSync().run(db, config.url, config.token)
         val pendingIds = db.pending().mapNotNull { it.optJSONObject("data")?.optString("id") }.toSet()
         val latestLocal = snapshot(db, config.device)
         var changed = false
@@ -103,7 +103,7 @@ class NativeCloudBridge @Inject constructor(
             updates.send(); runningUpdates.sendFullUpdate()
             externalViews.onAppStart()
         }
-        status = "云端已连接 · 待同步 ${db.pending().size} · 需处理 ${db.rejected().size}"
+        status = (if (complete) "云端已连接" else "补传中／等待服务器升级") + " · 待同步 ${db.pending().size} · 需处理 ${db.rejected().size}"
     }
 
     private fun uuid(device: String, key: String) = UUID.nameUUIDFromBytes("$device:$key".toByteArray()).toString()
@@ -177,7 +177,7 @@ class NativeCloudBridge @Inject constructor(
                 // Never overwrite a different local running session that is awaiting reconciliation.
                 if (current == null || sameRunning) running.add(RunningRecord(type, start, value.getString("comment"), current?.tags.orEmpty()))
             } else {
-                records.add(Record(recordId, type, start, value.getLong("ended_at"), value.getString("comment"), records.get(recordId)?.tags.orEmpty()))
+                records.add(Record(recordId, type, start, value.getLong("ended_at"), value.getString("comment"), (records.get(recordId)?.tags ?: current?.takeIf { sameRunning }?.tags).orEmpty()))
                 if (sameRunning) running.remove(type)
             }
         }

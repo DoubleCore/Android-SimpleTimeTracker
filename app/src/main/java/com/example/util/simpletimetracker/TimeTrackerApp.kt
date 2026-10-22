@@ -39,7 +39,6 @@ class TimeTrackerApp : Application() {
                 StrictMode.ThreadPolicy.Builder()
                     .detectAll()
                     .penaltyLog()
-                    .penaltyDialog()
                     .build(),
             )
             StrictMode.setVmPolicy(

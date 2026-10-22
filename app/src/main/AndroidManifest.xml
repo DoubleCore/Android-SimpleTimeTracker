@@ -12,6 +12,7 @@
         tools:replace="android:theme"
         tools:targetApi="tiramisu">
 
+        <activity android:name=".lan.LanHostActivity" android:exported="false" />
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"

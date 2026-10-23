@@ -1,6 +1,8 @@
 package com.example.util.simpletimetracker.ui
 
 import android.view.LayoutInflater
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import androidx.activity.viewModels
 import com.example.util.simpletimetracker.core.base.BaseActivity
 import com.example.util.simpletimetracker.core.manager.ThemeManager
@@ -26,17 +28,44 @@ class MainActivity : BaseActivity<Binding>() {
     lateinit var router: Router
 
     @Inject lateinit var cloudBridge: com.example.util.simpletimetracker.cloud.NativeCloudBridge
+    @Inject lateinit var chineseCatalog: com.example.util.simpletimetracker.catalog.ChineseStarterCatalog
+    private val catalogScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main
+    )
     private val cloudHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val cloudStatus = object : Runnable {
         override fun run() { binding.cloudSyncStatus.text = cloudBridge.status + " · 设置"; cloudHandler.postDelayed(this, 2000) }
     }
     override fun onPause() { cloudHandler.removeCallbacks(cloudStatus); super.onPause() }
+    override fun onDestroy() { catalogScope.cancel(); super.onDestroy() }
     private val viewModel: MainActivityViewModel by viewModels()
 
     override fun onResume() {
         super.onResume()
+        val catalogPreferences = getSharedPreferences("timetrak_cn_catalog_v1", MODE_PRIVATE)
+        if (catalogPreferences.getBoolean("refresh_pending", false)) {
+            catalogPreferences.edit().remove("refresh_pending").apply()
+            cloudBridge.notifyLocalChange()
+            recreate()
+            return
+        }
         router.bind(this)
         viewModel.onVisible()
+        catalogScope.launch {
+            try {
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    chineseCatalog.initializeIfFresh()
+                }
+                if (result.activitiesCreated > 0 || result.tagsCreated > 0) {
+                    // Fresh installs may already have rendered the empty first screen;
+                    // recreate once after the durable seed so the 7 cards appear.
+                    cloudBridge.notifyLocalChange()
+                    if (!isFinishing && !isDestroyed) recreate()
+                }
+            } catch (error: Exception) {
+                android.util.Log.w("TimeTrakCatalog", "中文活动初始化失败，可通过中文预置页面重试", error)
+            }
+        }
         cloudHandler.removeCallbacks(cloudStatus); cloudHandler.post(cloudStatus)
     }
 
@@ -45,6 +74,9 @@ class MainActivity : BaseActivity<Binding>() {
         router.onCreate(this)
         binding.cloudSyncStatus.setOnClickListener {
             startActivity(android.content.Intent(this, org.doublecore.stt.cloud.CloudSettingsActivity::class.java))
+        }
+        binding.chineseCatalog.setOnClickListener {
+            startActivity(android.content.Intent(this, com.example.util.simpletimetracker.catalog.ChineseCatalogActivity::class.java))
         }
         binding.aiAutoTags.setOnClickListener {
             startActivity(android.content.Intent(this, com.example.util.simpletimetracker.ai.PhoneAiSettingsActivity::class.java))

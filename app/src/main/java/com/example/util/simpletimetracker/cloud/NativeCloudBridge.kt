@@ -11,6 +11,7 @@ import com.example.util.simpletimetracker.domain.recordType.model.RecordType
 import com.example.util.simpletimetracker.domain.recordType.repo.RecordTypeRepo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.doublecore.stt.cloud.*
@@ -32,21 +33,42 @@ class NativeCloudBridge @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
+    private val wake = Channel<Unit>(Channel.CONFLATED)
     private var job: Job? = null
     private var store: CloudStore? = null
     private var address = ""
     @Volatile var status: String = "云同步未连接"
         private set
 
+    /** Start the already automatic 2s synchronizer; also wake promptly on local changes. */
     fun start() {
         if (job != null) return
+        scope.launch { updates.dataUpdated.collect { wake.trySend(Unit) } }
+        scope.launch { runningUpdates.fullUpdate.collect { wake.trySend(Unit) } }
         job = scope.launch {
             while (isActive) {
-                try { sync(); } catch (e: CancellationException) { throw e }
+                try { sync() } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { status = "同步待重试：${e.message}" }
-                delay(2000)
+                withTimeoutOrNull(2000L) { wake.receive() }
             }
         }
+    }
+
+    /** Called after the phone has committed a Watch action into its native Room database. */
+    fun notifyLocalChange() {
+        wake.trySend(Unit)
+        PhoneCloudRetryJobService.scheduleSoon(context)
+    }
+
+    /** JobScheduler fallback: a process restart never skips the existing durable Room history. */
+    suspend fun syncScheduled(): Boolean = try {
+        sync()
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        status = "自动补传待重试：${e.message}"
+        false
     }
 
     private suspend fun sync() = mutex.withLock {

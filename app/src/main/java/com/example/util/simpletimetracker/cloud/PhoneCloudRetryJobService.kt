@@ -30,8 +30,10 @@ class PhoneCloudRetryJobService : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         running = scope.launch {
-            val success = bridge.syncScheduled()
-            if (isActive) jobFinished(params, !success)
+            // Both tasks are independent: a cloud outage must not block direct phone AI.
+            val classified = tagger.syncScheduled()
+            val uploaded = bridge.syncScheduled()
+            if (isActive) jobFinished(params, !(classified && uploaded))
         }
         return true
     }

@@ -14,7 +14,7 @@
 - `feature_base_adapter/.../ChangeRecordCommentFieldAdapterDelegate.kt` 恢复原版外观，撤回额外麦克风图标。旧的语音识别实现文件保留但本版没有 UI 入口。
 - `NativeCloudBridge.kt`、`WearDataRepo.kt`、`CloudActivity.java` 恢复 PR #7 之前版本，撤回自动插入 12 个活动、8 个标签及单独云计时页面 UI 改动。
 - 保留 `FixedActivities.java` 作为未来功能使用的**静态中文活动常量**；本版不自动向 Room/云队列插入，不重新排列用户已有按钮。它的单元/仪器测试只验证主动调用时不会重复，不能理解成上线会自动应用。
-- 云同步状态、URL/密钥和新增功能实现进度说明保留在云同步设置子页内；AI 分类、Watch 语音和 LAN 后台服务未因此变成已实现功能。
+- `CloudSettingsActivity.java` 已恢复至改动前的云同步设置页面：只保留原有 URL/密钥/同步详情，不自行增设 AI、语音或 LAN 占位布局。未实现的功能不显示假设置。
 
 ## 验收边界
 

@@ -12,6 +12,7 @@ import timber.log.Timber.DebugTree
 class TimeTrackerApp : Application() {
 
     @javax.inject.Inject lateinit var cloudBridge: com.example.util.simpletimetracker.cloud.NativeCloudBridge
+    @javax.inject.Inject lateinit var aiTagger: com.example.util.simpletimetracker.ai.PhoneAiTagger
 
     override fun onCreate() {
         super.onCreate()

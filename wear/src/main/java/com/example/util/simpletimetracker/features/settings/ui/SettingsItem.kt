@@ -14,6 +14,11 @@ sealed interface SettingsItem {
         val checked: Boolean,
     ) : SettingsItem
 
+    data class Action(
+        override val type: SettingsItemType,
+        val text: String,
+    ) : SettingsItem
+
     data class Hint(
         override val type: SettingsItemType,
         val hint: String,

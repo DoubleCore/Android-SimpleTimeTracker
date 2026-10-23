@@ -63,6 +63,12 @@ class SettingsFragment :
     override fun initUi() = with(binding) {
         rvSettingsContent.adapter = contentAdapter
         rvSettingsContent.itemAnimator = null
+        timeTrakSettings.setOnClickListener {
+            startActivity(android.content.Intent().setClassName(
+                requireContext(),
+                "org.doublecore.stt.cloud.CloudSettingsActivity",
+            ))
+        }
     }
 
     override fun initViewModel(): Unit = with(binding) {

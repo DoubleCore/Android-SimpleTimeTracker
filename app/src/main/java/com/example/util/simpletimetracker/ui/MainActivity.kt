@@ -1,6 +1,8 @@
 package com.example.util.simpletimetracker.ui
 
 import android.view.LayoutInflater
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import androidx.activity.viewModels
 import com.example.util.simpletimetracker.core.base.BaseActivity
 import com.example.util.simpletimetracker.core.manager.ThemeManager

@@ -54,6 +54,8 @@ class NativeCloudBridge @Inject constructor(
     }
 
     private suspend fun sync() = mutex.withLock {
+        // The fixed catalog is local-first: no server connection is required to start tracking.
+        ensureLocalDefaults()
         val config = CloudConfig(context)
         if (config.url.isEmpty()) return@withLock
         if (address != config.url) {
@@ -70,7 +72,6 @@ class NativeCloudBridge @Inject constructor(
         }
         db.setMeta("native_seen", seen.toString()); db.setMeta("native_import", "{}")
         ensureFixedActivities(db)
-        ensureFixedTags()
         val local = snapshot(db, config.device)
         val allKeys = (local.keys().asSequence().toList() + seen.keys().asSequence().toList()).distinct()
         for (key in allKeys.sortedBy { if (it.startsWith("a:")) 0 else 1 }) {
@@ -110,6 +111,21 @@ class NativeCloudBridge @Inject constructor(
             externalViews.onAppStart()
         }
         status = (if (complete) "云端已连接" else "补传中／等待服务器升级") + " · 待同步 ${db.pending().size} · 需处理 ${db.rejected().size}"
+    }
+
+    private suspend fun ensureLocalDefaults() {
+        val names = types.getAll().map { it.name }.toSet()
+        for (entry in FixedActivities.ALL) {
+            if (entry.name in names) continue
+            types.add(RecordType(
+                name = entry.name,
+                icon = "ic_book",
+                color = AppColor(6, ""),
+                defaultDuration = 0,
+                note = "",
+            ))
+        }
+        ensureFixedTags()
     }
 
     /** Install a fixed Chinese catalog into the existing Room database without deleting user history. */

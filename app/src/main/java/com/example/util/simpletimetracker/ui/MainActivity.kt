@@ -50,8 +50,10 @@ class MainActivity : BaseActivity<Binding>() {
                     chineseCatalog.initializeIfFresh()
                 }
                 if (result.activitiesCreated > 0 || result.tagsCreated > 0) {
-                    viewModel.onVisible()
+                    // Fresh installs may already have rendered the empty first screen;
+                    // recreate once after the durable seed so the 7 cards appear.
                     cloudBridge.notifyLocalChange()
+                    if (!isFinishing && !isDestroyed) recreate()
                 }
             } catch (error: Exception) {
                 android.util.Log.w("TimeTrakCatalog", "中文活动初始化失败，可通过中文预置页面重试", error)

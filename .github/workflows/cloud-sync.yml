@@ -35,7 +35,8 @@ jobs:
           cp docs/CLOUD_APK.md delivery/CLOUD_EXISTING.md
           cp docs/WATCH5_DIRECT_WIFI.md delivery/LAN_INSTALL.md
           cp docs/AUTO_SYNC.md delivery/AUTO_SYNC.md
-          cp docs/PHONE_DIRECT_AI_TAGS.md delivery/INSTALL.md
+          cp docs/PHONE_DIRECT_AI_TAGS.md delivery/AI_SETUP.md
+          cp docs/CHINESE_STARTER_CATALOG.md delivery/INSTALL.md
           git rev-parse HEAD > delivery/COMMIT.txt
           cd delivery
           sha256sum *.apk > SHA256SUMS.txt

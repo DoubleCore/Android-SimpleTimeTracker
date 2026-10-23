@@ -43,6 +43,7 @@ class LanHostActivity : ComponentActivity() {
     @Inject lateinit var records: RecordInteractor
     @Inject lateinit var updates: RecordsUpdateInteractor
     @Inject lateinit var runningUpdates: UpdateRunningRecordsInteractor
+    @Inject lateinit var cloudBridge: com.example.util.simpletimetracker.cloud.NativeCloudBridge
 
     private val operations = Mutex()
     private var server: LanHttpServer? = null

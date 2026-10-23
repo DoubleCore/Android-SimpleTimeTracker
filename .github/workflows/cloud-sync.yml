@@ -1,7 +1,7 @@
 name: Full phone and Watch APK
 on:
   push:
-    branches: [feature/xiaomi-watch5-lan-v159, feature/watch5-direct-wifi-m1-m2]
+    branches: [feature/xiaomi-watch5-lan-v159, feature/watch5-direct-wifi-m1-m2, feature/watch5-auto-cloud-sync]
     paths: ['server/cloud-sync/**', 'cloud_sync/**', 'app/**', 'wear/**', '.github/workflows/cloud-sync.yml']
   workflow_dispatch:
 permissions:

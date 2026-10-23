@@ -44,7 +44,9 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
         if (store == null || address != config.url) {
             store?.close(); store = CloudStore(context, config.databaseName()); address = config.url
         }
-        return requireNotNull(store)
+        val database = requireNotNull(store)
+        FixedActivities.ensure(database, config.device)
+        return database
     }
     private fun numeric(id: String) = (UUID.fromString(id).mostSignificantBits and 0x0000FFFFFFFFFFFFL) + 1_000_000_000L
     private fun activities() = database().view("activities").values.filter { !it.optBoolean("hidden") }

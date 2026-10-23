@@ -32,11 +32,12 @@ public final class CloudActivity extends Activity {
     private final Runnable poll = this::sync;
     private CloudConfig config;
     private CloudStore store;
-    private LinearLayout root, content;
+    private LinearLayout root, content, settings;
+    private EditText address, secret, activityName;
     private TextView status;
     private boolean foreground, busy, destroyed;
     private int failureCount;
-    private String lastMessage = "请在设置中连接云同步";
+    private String lastMessage = "请填写服务器地址与密钥";
 
     @Override public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
@@ -44,10 +45,7 @@ public final class CloudActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         try {
             config = new CloudConfig(this);
-            if (!config.url.isEmpty()) {
-                store = new CloudStore(this, config.databaseName());
-                FixedActivities.ensure(store, config.device);
-            }
+            if (!config.url.isEmpty()) store = new CloudStore(this, config.databaseName());
         } catch (Exception e) {
             new AlertDialog.Builder(this).setMessage("配置无法读取，未清除本地数据：" + e.getMessage())
                     .setPositiveButton("关闭", (d, w) -> finish()).setCancelable(false).show();
@@ -60,34 +58,48 @@ public final class CloudActivity extends Activity {
         scroll.setFillViewport(true); scroll.addView(root); setContentView(scroll);
         TextView title = text(root, "云端计时", 22); title.setGravity(Gravity.CENTER);
         status = text(root, "", 14);
-        button(root, "设置 · 云同步与功能", () ->
-                startActivity(new android.content.Intent(this, CloudSettingsActivity.class)));
+        button(root, "连接设置", () -> settings.setVisibility(settings.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        settings = new LinearLayout(this); settings.setOrientation(LinearLayout.VERTICAL); root.addView(settings);
+        address = input(settings, "https://time.example.com", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        address.setText(config.url);
+        secret = input(settings, "服务器密钥（两端相同）", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        secret.setText(config.token);
+        button(settings, "保存并连接", this::saveConfig);
+        settings.setVisibility(store == null ? View.VISIBLE : View.GONE);
         button(root, "立即同步", this::sync);
         content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); root.addView(content);
-        text(root, "中文活动已固定，无需手动创建。记录离线保存，重新连接后补传。", 12);
+        text(root, "添加活动", 18);
+        activityName = input(root, "例如：学习", InputType.TYPE_CLASS_TEXT);
+        button(root, "创建活动", () -> {
+            String name = activityName.getText().toString().trim();
+            if (name.isEmpty() || name.length() > 80) { message("活动名需要 1～80 个字符"); return; }
+            enqueue("activity", UUID.randomUUID().toString(), null, name);
+        });
+        text(root, "页面打开时自动同步；离线操作会保留，重新打开后补传。正式手机端会将记录接入计时历史和统计。", 12);
         render();
     }
-    @Override protected void onStart() {
-        super.onStart();
-        foreground = true;
-        try {
-            CloudConfig next = new CloudConfig(this);
-            if (config == null || !next.url.equals(config.url)) {
-                if (store != null) store.close();
-                store = next.url.isEmpty() ? null : new CloudStore(this, next.databaseName());
-            }
-            config = next;
-            if (store != null) FixedActivities.ensure(store, config.device);
-        } catch (Exception e) {
-            message("连接设置未加载：" + e.getMessage());
-        }
-        if (status != null) { render(); sync(); }
-    }
+    @Override protected void onStart() { super.onStart(); foreground = true; if (status != null) sync(); }
     @Override protected void onStop() { foreground = false; main.removeCallbacks(poll); super.onStop(); }
     @Override protected void onDestroy() {
         destroyed = true; main.removeCallbacks(poll);
         worker.execute(() -> { if (store != null) store.close(); }); worker.shutdown();
         super.onDestroy();
+    }
+    private void saveConfig() {
+        if (busy) { message("正在同步，请稍后保存设置"); return; }
+        try {
+            String newUrl = CloudHttp.normalize(address.getText().toString());
+            boolean different = !newUrl.equals(config.url);
+            if (different && store != null && store.outstanding() > 0) {
+                message("还有待同步/待处理操作，请处理完成后更换服务器"); return;
+            }
+            config.save(newUrl, secret.getText().toString().trim());
+            if (store == null || different) {
+                if (store != null) store.close();
+                store = new CloudStore(this, config.databaseName());
+            }
+            settings.setVisibility(View.GONE); failureCount = 0; sync();
+        } catch (Exception e) { message(e.getMessage()); }
     }
     private void enqueue(String kind, String activityId, String sessionId, String name) {
         if (store == null) { message("先保存服务器设置；之后断网也能记录"); return; }
@@ -98,6 +110,7 @@ public final class CloudActivity extends Activity {
             if (sessionId != null) op.put("session_id", sessionId);
             if (name != null) op.put("name", name);
             store.enqueue(op); lastMessage = "已保存在本机，等待服务器确认";
+            if (kind.equals("activity")) activityName.setText("");
             render(); sync();
         } catch (Exception e) { message("本地保存失败：" + e.getMessage()); }
     }
@@ -137,7 +150,7 @@ public final class CloudActivity extends Activity {
             status.setText(lastMessage + queue);
             Map<String, JSONObject> activities = store.view("activities");
             Map<String, JSONObject> sessions = store.view("sessions");
-            if (activities.isEmpty()) text(content, "打开设置连接服务器后会自动显示中文活动。", 15);
+            if (activities.isEmpty()) text(content, "先在任一设备创建活动，另一端会自动同步。", 15);
             for (JSONObject activity : activities.values()) {
                 if (activity.optBoolean("hidden")) continue;
                 String id = activity.getString("id"), name = activity.getString("name");

@@ -32,7 +32,9 @@ jobs:
           mkdir -p delivery
           cp app/build/outputs/apk/base/debug/*.apk delivery/STT-Phone-Cloud.apk
           cp wear/build/outputs/apk/debug/*.apk delivery/STT-Watch5-Cloud.apk
-          cp docs/CLOUD_APK.md delivery/INSTALL.md
+          cp docs/CLOUD_APK.md delivery/CLOUD_EXISTING.md
+          cp docs/WATCH5_DIRECT_WIFI.md delivery/LAN_INSTALL.md
+          cp docs/AUTO_SYNC.md delivery/INSTALL.md
           git rev-parse HEAD > delivery/COMMIT.txt
           cd delivery
           sha256sum *.apk > SHA256SUMS.txt

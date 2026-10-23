@@ -39,7 +39,7 @@ public final class FixedActivities {
     public static JSONObject data(Entry entry) throws Exception {
         return new JSONObject()
                 .put("id", entry.id).put("name", entry.name)
-                .put("icon", "ic_book").put("color_id", 0).put("color_int", "")
+                .put("icon", "ic_book").put("color_id", 6).put("color_int", "")
                 .put("default_duration", 0).put("note", "").put("hidden", false);
     }
 

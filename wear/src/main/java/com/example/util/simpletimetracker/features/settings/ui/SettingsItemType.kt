@@ -10,5 +10,6 @@ interface SettingsItemType {
     object AllowMultitasking : SettingsItemType
     object AllowMultitaskingHint : SettingsItemType
     object ShowCompactList : SettingsItemType
+    object CloudConnection : SettingsItemType
     object Version : SettingsItemType
 }

@@ -66,6 +66,12 @@ class SettingsMainViewDataInteractor @Inject constructor(
         )
 
         result += SettingsTextViewData(
+            block = SettingsBlock.TimeTrakSettings,
+            title = "TimeTrak · 云同步与功能设置",
+            subtitle = "云端连接、同步详情及新增功能",
+        )
+
+        result += SettingsTextViewData(
             block = SettingsBlock.Archive,
             title = resourceRepo.getString(R.string.settings_archive),
             subtitle = "",

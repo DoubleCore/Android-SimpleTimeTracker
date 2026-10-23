@@ -120,7 +120,7 @@ class NativeCloudBridge @Inject constructor(
                 ?: types.add(RecordType(
                     name = entry.name,
                     icon = "ic_book",
-                    color = AppColor(0, ""),
+                    color = AppColor(6, ""),
                     defaultDuration = 0,
                     note = "",
                 ))
@@ -138,7 +138,7 @@ class NativeCloudBridge @Inject constructor(
         for (name in listOf("计划", "专注", "资料整理", "深度工作", "协作沟通", "复盘", "中断", "临时事务")) {
             if (name in found) continue
             tags.add(RecordTag(
-                name = name, icon = "ic_book", color = AppColor(0, ""),
+                name = name, icon = "ic_book", color = AppColor(6, ""),
                 iconColorSource = 0, note = "", valueType = RecordTagValueType.NONE, valueSuffix = "",
             ))
         }

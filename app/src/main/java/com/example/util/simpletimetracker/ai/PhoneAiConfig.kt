@@ -44,7 +44,7 @@ class PhoneAiConfig(private val context: Context) {
     fun save(endpoint: String, model: String, newKey: String?) {
         val normalized = validateEndpoint(endpoint)
         val cleanModel = model.trim()
-        require(cleanModel.length in 1..128 && !cleanModel.any { it.isISOControl() }) {
+        require(cleanModel.length in 1..128 && !cleanModel.any { it.code < 32 }) {
             "请输入有效的模型 ID"
         }
         val oldKey = if (newKey.isNullOrBlank()) load()?.key else null

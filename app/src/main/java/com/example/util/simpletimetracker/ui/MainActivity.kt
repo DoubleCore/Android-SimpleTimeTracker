@@ -26,6 +26,10 @@ class MainActivity : BaseActivity<Binding>() {
     lateinit var router: Router
 
     @Inject lateinit var cloudBridge: com.example.util.simpletimetracker.cloud.NativeCloudBridge
+    @Inject lateinit var chineseCatalog: com.example.util.simpletimetracker.catalog.ChineseStarterCatalog
+    private val catalogScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main
+    )
     private val cloudHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val cloudStatus = object : Runnable {
         override fun run() { binding.cloudSyncStatus.text = cloudBridge.status + " · 设置"; cloudHandler.postDelayed(this, 2000) }

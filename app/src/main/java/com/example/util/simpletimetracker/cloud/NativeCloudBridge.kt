@@ -8,9 +8,6 @@ import com.example.util.simpletimetracker.domain.record.interactor.RecordsUpdate
 import com.example.util.simpletimetracker.domain.record.model.Record
 import com.example.util.simpletimetracker.domain.record.model.RunningRecord
 import com.example.util.simpletimetracker.domain.recordType.model.RecordType
-import com.example.util.simpletimetracker.domain.recordTag.repo.RecordTagRepo
-import com.example.util.simpletimetracker.domain.recordTag.model.RecordTag
-import com.example.util.simpletimetracker.domain.recordTag.model.RecordTagValueType
 import com.example.util.simpletimetracker.domain.recordType.repo.RecordTypeRepo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -27,7 +24,6 @@ import javax.inject.Singleton
 class NativeCloudBridge @Inject constructor(
     @ApplicationContext private val context: Context,
     private val types: RecordTypeRepo,
-    private val tags: RecordTagRepo,
     private val records: RecordInteractor,
     private val running: RunningRecordInteractor,
     private val updates: RecordsUpdateInteractor,
@@ -54,8 +50,6 @@ class NativeCloudBridge @Inject constructor(
     }
 
     private suspend fun sync() = mutex.withLock {
-        // The fixed catalog is local-first: no server connection is required to start tracking.
-        ensureLocalDefaults()
         val config = CloudConfig(context)
         if (config.url.isEmpty()) return@withLock
         if (address != config.url) {
@@ -71,7 +65,6 @@ class NativeCloudBridge @Inject constructor(
             seen.put(key, value)
         }
         db.setMeta("native_seen", seen.toString()); db.setMeta("native_import", "{}")
-        ensureFixedActivities(db)
         val local = snapshot(db, config.device)
         val allKeys = (local.keys().asSequence().toList() + seen.keys().asSequence().toList()).distinct()
         for (key in allKeys.sortedBy { if (it.startsWith("a:")) 0 else 1 }) {
@@ -111,53 +104,6 @@ class NativeCloudBridge @Inject constructor(
             externalViews.onAppStart()
         }
         status = (if (complete) "云端已连接" else "补传中／等待服务器升级") + " · 待同步 ${db.pending().size} · 需处理 ${db.rejected().size}"
-    }
-
-    private suspend fun ensureLocalDefaults() {
-        val names = types.getAll().map { it.name }.toSet()
-        for (entry in FixedActivities.ALL) {
-            if (entry.name in names) continue
-            types.add(RecordType(
-                name = entry.name,
-                icon = "ic_book",
-                color = AppColor(6, ""),
-                defaultDuration = 0,
-                note = "",
-            ))
-        }
-        ensureFixedTags()
-    }
-
-    /** Install a fixed Chinese catalog into the existing Room database without deleting user history. */
-    private suspend fun ensureFixedActivities(db: CloudStore) {
-        val existing = types.getAll()
-        for (entry in FixedActivities.ALL) {
-            val typeId = existing.firstOrNull { it.name == entry.name }?.id
-                ?: types.add(RecordType(
-                    name = entry.name,
-                    icon = "ic_book",
-                    color = AppColor(6, ""),
-                    defaultDuration = 0,
-                    note = "",
-                ))
-            // Never re-key an activity which has already been synced.
-            if (db.meta("native_type:$typeId", "").isEmpty()) {
-                db.setMeta("native_type:$typeId", entry.id)
-                db.setMeta("native_type_id:${entry.id}", typeId.toString())
-            }
-        }
-    }
-
-    /** Phone-only tags: stable defaults; never delete existing user-created tags. */
-    private suspend fun ensureFixedTags() {
-        val found = tags.getAll().map { it.name }.toSet()
-        for (name in listOf("计划", "专注", "资料整理", "深度工作", "协作沟通", "复盘", "中断", "临时事务")) {
-            if (name in found) continue
-            tags.add(RecordTag(
-                name = name, icon = "ic_book", color = AppColor(6, ""),
-                iconColorSource = 0, note = "", valueType = RecordTagValueType.NONE, valueSuffix = "",
-            ))
-        }
     }
 
     private fun uuid(device: String, key: String) = UUID.nameUUIDFromBytes("$device:$key".toByteArray()).toString()

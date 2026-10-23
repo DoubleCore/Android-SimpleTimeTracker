@@ -11,7 +11,7 @@ import com.example.util.simpletimetracker.domain.record.interactor.RecordInterac
 import com.example.util.simpletimetracker.domain.record.interactor.RunningRecordInteractor
 import com.example.util.simpletimetracker.domain.record.interactor.RecordsUpdateInteractor
 import com.example.util.simpletimetracker.domain.record.interactor.UpdateRunningRecordsInteractor
-import com.example.util.simpletimetracker.domain.record.model.RunningRecord
+import com.example.util.simpletimetracker.domain.record.model.Record
 import com.example.util.simpletimetracker.domain.recordType.repo.RecordTypeRepo
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.runBlocking
@@ -49,7 +49,6 @@ class LanHostActivity : ComponentActivity() {
     private var server: LanHttpServer? = null
     private lateinit var status: TextView
     private lateinit var secret: String
-    private val ms get() = System.currentTimeMillis() / 1000 * 1000
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,7 +71,7 @@ class LanHostActivity : ComponentActivity() {
             root.addView(Button(this).apply { text = title; isAllCaps = false; setOnClickListener { action() } })
         }
         label("STT 手机 ↔ Watch 5 · Wi-Fi直连", 21f)
-        label("无需云服务器；手机是主数据端，手表读取原生活动和计时。仅限可信 Wi-Fi，通信未加密；使用中请保持本页面打开。")
+        label("无需云服务器；手机接收手表独立产生的完整计时记录并自动入库。仅限可信 Wi-Fi，通信未加密；使用中请保持本页面打开。")
         label("配对密钥（手机/手表相同）：\n$secret")
         status = label("未启动")
         button("停止直连服务") { stopServer() }
@@ -83,7 +82,7 @@ class LanHostActivity : ComponentActivity() {
         }.distinctBy { it.hostAddress }
         for (address in addresses) button("启动服务：${address.hostAddress}:8765") { startServer(address) }
         if (addresses.isEmpty()) status.text = "没有发现私有 IPv4：先连接 Wi-Fi 或手机热点，再重新打开"
-        label("手表：打开 Wi-Fi直连设置，填上述 IP 与密钥。手表操作会直接写入手机原有计时历史和统计。离开本页面将停止服务。")
+        label("手表：打开 Wi-Fi直连设置，填上述 IP 与密钥。手表本地独立计时，完成后自动上传记录到手机原版历史和统计。离开本页面将停止接收，手表保留离线记录等待重连。")
     }
 
     private fun startServer(ip: InetAddress) {
@@ -105,7 +104,7 @@ class LanHostActivity : ComponentActivity() {
         operations.withLock {
             when {
                 method == "GET" && path == "/v1/state" -> 200 to state()
-                method == "POST" && path == "/v1/action" && data != null -> action(data)
+                method == "POST" && path == "/v1/import" && data != null -> importWatchRecord(data)
                 else -> 404 to error("unknown_route")
             }
         }
@@ -117,52 +116,48 @@ class LanHostActivity : ComponentActivity() {
             activityArray.put(JSONObject().put("id", type.id).put("name", type.name)
                 .put("icon", type.icon).put("hidden", type.hidden))
         }
-        val sessions = JSONArray()
-        for (entry in running.getAll()) {
-            sessions.put(JSONObject().put("activity_id", entry.id).put("started_at", entry.timeStarted)
-                .put("ended_at", JSONObject.NULL))
-        }
-        for (entry in records.getAll().sortedByDescending { it.timeEnded }.take(100)) {
-            sessions.put(JSONObject().put("activity_id", entry.typeId).put("started_at", entry.timeStarted)
-                .put("ended_at", entry.timeEnded))
-        }
-        return JSONObject().put("protocol", 1).put("activities", activityArray).put("sessions", sessions)
+        return JSONObject().put("protocol", 1).put("activities", activityArray)
     }
-    private suspend fun action(data: JSONObject): Pair<Int, JSONObject> {
-        val kind = data.optString("kind")
+
+    /**
+     * Watch owns timer start/stop timestamps. Phone only imports a completed
+     * watch session after validating and committing it in the native Room DB.
+     * Stable record IDs make lost HTTP replies safe to retry without duplicates.
+     */
+    private suspend fun importWatchRecord(data: JSONObject): Pair<Int, JSONObject> {
+        val sessionUuid = try {
+            java.util.UUID.fromString(data.getString("record_id"))
+        } catch (_: Exception) {
+            return 400 to error("invalid_record_id")
+        }
+        if (sessionUuid.version() != 4) return 400 to error("invalid_record_id")
         val typeId = data.optLong("activity_id", -1L)
-        if (typeId <= 0 || types.get(typeId) == null) return 404 to error("activity_missing")
-        val current = running.get(typeId)
-        if (kind == "start") {
-            // Repeated requests must not reset an active timer.
-            if (current == null) {
-                running.add(RunningRecord(typeId, ms, "", emptyList()))
-                updates.send(); runningUpdates.sendFullUpdate()
-                cloudBridge.notifyLocalChange()
-            }
-            return 200 to JSONObject().put("protocol", 1).put("ok", true).put("started_at", (current ?: running.get(typeId)!!).timeStarted)
+        val start = data.optLong("started_at", -1L)
+        val end = data.optLong("ended_at", -1L)
+        val comment = data.optString("comment", "")
+        val now = System.currentTimeMillis()
+        if (typeId <= 0 || types.get(typeId) == null) return 409 to error("activity_missing")
+        if (start < 946684800000L || end < start || end > now + 60000L ||
+            comment.length > 4096 || end - start > 365L * 24 * 3600 * 1000) {
+            return 400 to error("invalid_record")
         }
-        if (kind == "stop") {
-            // Compare-and-stop: a delayed Watch request can never stop a later session.
-            val expected = data.optLong("expected_started_at", -1)
-            if (expected <= 0) return 400 to error("expected_start_required")
-            if (current == null) {
-                val alreadyStopped = records.getAll().any { it.typeId == typeId && it.timeStarted == expected }
-                return if (alreadyStopped) 200 to JSONObject().put("protocol", 1).put("ok", true)
-                else 409 to error("session_missing")
+        val recordId = (sessionUuid.mostSignificantBits and 0x0000FFFFFFFFFFFFL) + 1_000_000_000L
+        val previous = records.get(recordId)
+        if (previous != null) {
+            if (previous.typeId != typeId || previous.timeStarted != start ||
+                previous.timeEnded != end || previous.comment != comment) {
+                return 409 to error("record_id_conflict")
             }
-            if (current.timeStarted != expected) return 409 to error("session_changed")
-            // A process crash between add and remove cannot create another completed record on retry.
-            if (records.getAll().none { it.typeId == typeId && it.timeStarted == expected }) {
-                records.addFromRunning(current, maxOf(ms, current.timeStarted))
-            }
-            running.remove(typeId)
-            updates.send(); runningUpdates.sendFullUpdate()
-            cloudBridge.notifyLocalChange()
-            return 200 to JSONObject().put("protocol", 1).put("ok", true)
+            return 200 to JSONObject().put("protocol", 1).put("accepted", true)
+                .put("record_id", sessionUuid.toString())
         }
-        return 400 to error("invalid_kind")
+        records.add(Record(recordId, typeId, start, end, comment, emptyList()))
+        updates.send()
+        cloudBridge.notifyLocalChange()
+        return 200 to JSONObject().put("protocol", 1).put("accepted", true)
+            .put("record_id", sessionUuid.toString())
     }
+
     private fun randomSecret(): String {
         val bytes = ByteArray(16); SecureRandom().nextBytes(bytes)
         return bytes.joinToString("") { "%02x".format(it.toInt() and 255) }

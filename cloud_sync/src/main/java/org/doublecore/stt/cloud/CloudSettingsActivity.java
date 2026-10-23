@@ -80,10 +80,10 @@ public final class CloudSettingsActivity extends Activity {
             names.append(entry.name);
         }
         line(root, names.toString(), 14);
-        line(root, "活动名称写入 APK 源码，不提供手动增删和重命名入口；已有历史活动与记录不会被删除。", 12);
+        line(root, "以上是源码中预留的中文活动名称。本版为保持原版计时页面不变，不会自动创建活动或修改现有卡片。", 12);
 
         heading(root, "语音描述");
-        line(root, "手机端在记录描述框点击麦克风，使用设备提供的语音识别服务；手表端语音识别尚未接通。", 14);
+        line(root, "为保持原版描述编辑框外观不变，已撤回额外的麦克风按钮；语音识别代码保留但本版不提供新入口。", 14);
 
         heading(root, "局域网连接");
         line(root, "现有 LAN 探针为独立工程，尚未整合进正式计时应用。手机后台常驻局域网服务尚未完成。", 14);

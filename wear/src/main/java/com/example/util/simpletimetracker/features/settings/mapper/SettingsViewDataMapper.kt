@@ -44,6 +44,10 @@ class SettingsViewDataMapper @Inject constructor(
             text = resourceRepo.getString(R.string.wear_settings_title_show_compact_list),
             checked = showCompactList,
         )
+        items += SettingsItem.Action(
+            type = SettingsItemType.CloudConnection,
+            text = "云同步连接设置",
+        )
         items += SettingsItem.Version(
             type = SettingsItemType.Version,
             text = getAppVersion(),

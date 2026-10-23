@@ -19,6 +19,7 @@ class TimeTrackerApp : Application() {
         initLibraries()
         initStrictMode()
         cloudBridge.start()
+        com.example.util.simpletimetracker.cloud.PhoneCloudRetryJobService.ensurePeriodic(this)
     }
 
     private fun initLog() {

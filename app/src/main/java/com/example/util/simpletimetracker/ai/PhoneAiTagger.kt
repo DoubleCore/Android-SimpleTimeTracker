@@ -114,6 +114,8 @@ class PhoneAiTagger @Inject constructor(
             }
             lastAttempt.set(System.currentTimeMillis())
             val answer = classify(config, item, allowed)
+            // Opt-out or provider reconfiguration while HTTP was in flight cancels application.
+            if (PhoneAiConfig(context).load()?.enabledSince != config.enabledSince) return@withLock
             val latest = records.get(item.id) ?: continue
             if (latest.comment != item.comment || latest.typeId != item.typeId ||
                 latest.timeStarted != item.timeStarted || latest.timeEnded != item.timeEnded) {

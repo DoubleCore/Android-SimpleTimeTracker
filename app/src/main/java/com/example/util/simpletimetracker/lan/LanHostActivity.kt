@@ -158,6 +158,7 @@ class LanHostActivity : ComponentActivity() {
             }
             running.remove(typeId)
             updates.send(); runningUpdates.sendFullUpdate()
+            cloudBridge.notifyLocalChange()
             return 200 to JSONObject().put("protocol", 1).put("ok", true)
         }
         return 400 to error("invalid_kind")

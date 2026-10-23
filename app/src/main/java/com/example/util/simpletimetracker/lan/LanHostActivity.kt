@@ -138,6 +138,7 @@ class LanHostActivity : ComponentActivity() {
             if (current == null) {
                 running.add(RunningRecord(typeId, ms, "", emptyList()))
                 updates.send(); runningUpdates.sendFullUpdate()
+                cloudBridge.notifyLocalChange()
             }
             return 200 to JSONObject().put("protocol", 1).put("ok", true).put("started_at", (current ?: running.get(typeId)!!).timeStarted)
         }

@@ -64,6 +64,9 @@ class MainActivity : BaseActivity<Binding>() {
         binding.cloudSyncStatus.setOnClickListener {
             startActivity(android.content.Intent(this, org.doublecore.stt.cloud.CloudSettingsActivity::class.java))
         }
+        binding.chineseCatalog.setOnClickListener {
+            startActivity(android.content.Intent(this, com.example.util.simpletimetracker.catalog.ChineseCatalogActivity::class.java))
+        }
         binding.aiAutoTags.setOnClickListener {
             startActivity(android.content.Intent(this, com.example.util.simpletimetracker.ai.PhoneAiSettingsActivity::class.java))
         }

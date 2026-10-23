@@ -42,6 +42,13 @@ class MainActivity : BaseActivity<Binding>() {
 
     override fun onResume() {
         super.onResume()
+        val catalogPreferences = getSharedPreferences("timetrak_cn_catalog_v1", MODE_PRIVATE)
+        if (catalogPreferences.getBoolean("refresh_pending", false)) {
+            catalogPreferences.edit().remove("refresh_pending").apply()
+            cloudBridge.notifyLocalChange()
+            recreate()
+            return
+        }
         router.bind(this)
         viewModel.onVisible()
         catalogScope.launch {

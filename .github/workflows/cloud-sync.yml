@@ -1,8 +1,8 @@
 name: Full phone and Watch APK
 on:
   push:
-    branches: [feature/xiaomi-watch5-lan-v159]
-    paths: ['server/cloud-sync/**', 'cloud_sync/**', 'app/**', 'wear/**', '.github/workflows/cloud-sync.yml']
+    branches: [feature/xiaomi-watch5-lan-v159, feature/timetrak-zh-presets-settings-20261023]
+    paths: ['server/cloud-sync/**', 'cloud_sync/**', 'app/**', 'wear/**', 'features/feature_settings/**', 'tools/cloud-app/**', '.github/workflows/cloud-sync.yml']
   workflow_dispatch:
 permissions:
   contents: read

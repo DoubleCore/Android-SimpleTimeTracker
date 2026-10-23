@@ -11,6 +11,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Independent watch recording database.
@@ -18,6 +19,7 @@ import java.util.UUID;
  * The phone receives completed records, never remote timer commands.
  */
 public final class WatchLanStore extends SQLiteOpenHelper {
+    private static final ReentrantLock TRANSFER_LOCK = new ReentrantLock();
     public WatchLanStore(Context context) {
         super(context, new File(context.getNoBackupFilesDir(), "stt-watch-lan-v1.db").getAbsolutePath(), null, 1);
     }
@@ -163,7 +165,10 @@ public final class WatchLanStore extends SQLiteOpenHelper {
      * Pull activity catalogue and upload completed local watch records.
      * A failure keeps every unacknowledged record safely in SQLite.
      */
-    public synchronized int synchronize(LanConnection lan) throws Exception {
+    public int synchronize(LanConnection lan) throws Exception {
+        // No SQLite monitor is held across network I/O: local timer buttons stay responsive.
+        if (!TRANSFER_LOCK.tryLock()) return 0;
+        try {
         JSONObject state = lan.request("GET", "/v1/state", null);
         saveActivities(state.getJSONArray("activities"));
         int accepted = 0;
@@ -181,5 +186,6 @@ public final class WatchLanStore extends SQLiteOpenHelper {
             accepted++;
         }
         return accepted;
+        } finally { TRANSFER_LOCK.unlock(); }
     }
 }

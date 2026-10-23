@@ -42,6 +42,19 @@ class MainActivity : BaseActivity<Binding>() {
         super.onResume()
         router.bind(this)
         viewModel.onVisible()
+        catalogScope.launch {
+            try {
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    chineseCatalog.initializeIfFresh()
+                }
+                if (result.activitiesCreated > 0 || result.tagsCreated > 0) {
+                    viewModel.onVisible()
+                    cloudBridge.notifyLocalChange()
+                }
+            } catch (error: Exception) {
+                android.util.Log.w("TimeTrakCatalog", "中文活动初始化失败，可通过中文预置页面重试", error)
+            }
+        }
         cloudHandler.removeCallbacks(cloudStatus); cloudHandler.post(cloudStatus)
     }
 

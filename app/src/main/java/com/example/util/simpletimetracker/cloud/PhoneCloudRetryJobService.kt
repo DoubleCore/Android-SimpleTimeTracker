@@ -24,6 +24,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class PhoneCloudRetryJobService : JobService() {
     @Inject lateinit var bridge: NativeCloudBridge
+    @Inject lateinit var tagger: com.example.util.simpletimetracker.ai.PhoneAiTagger
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var running: Job? = null
 

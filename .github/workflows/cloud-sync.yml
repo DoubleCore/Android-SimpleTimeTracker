@@ -1,7 +1,7 @@
 name: Full phone and Watch APK
 on:
   push:
-    branches: [feature/xiaomi-watch5-lan-v159, feature/watch5-direct-wifi-m1-m2, feature/watch5-auto-cloud-sync, feature/watch5-local-first-record-sync]
+    branches: [feature/xiaomi-watch5-lan-v159, feature/watch5-direct-wifi-m1-m2, feature/watch5-auto-cloud-sync, feature/watch5-local-first-record-sync, feature/phone-direct-ai-auto-tags]
     paths: ['server/cloud-sync/**', 'cloud_sync/**', 'app/**', 'wear/**', '.github/workflows/cloud-sync.yml']
   workflow_dispatch:
 permissions:
@@ -34,7 +34,8 @@ jobs:
           cp wear/build/outputs/apk/debug/*.apk delivery/STT-Watch5-Cloud.apk
           cp docs/CLOUD_APK.md delivery/CLOUD_EXISTING.md
           cp docs/WATCH5_DIRECT_WIFI.md delivery/LAN_INSTALL.md
-          cp docs/AUTO_SYNC.md delivery/INSTALL.md
+          cp docs/AUTO_SYNC.md delivery/AUTO_SYNC.md
+          cp docs/PHONE_DIRECT_AI_TAGS.md delivery/INSTALL.md
           git rev-parse HEAD > delivery/COMMIT.txt
           cd delivery
           sha256sum *.apk > SHA256SUMS.txt

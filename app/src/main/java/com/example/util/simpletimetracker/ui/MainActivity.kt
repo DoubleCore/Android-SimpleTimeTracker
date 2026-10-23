@@ -35,6 +35,7 @@ class MainActivity : BaseActivity<Binding>() {
         override fun run() { binding.cloudSyncStatus.text = cloudBridge.status + " · 设置"; cloudHandler.postDelayed(this, 2000) }
     }
     override fun onPause() { cloudHandler.removeCallbacks(cloudStatus); super.onPause() }
+    override fun onDestroy() { catalogScope.cancel(); super.onDestroy() }
     private val viewModel: MainActivityViewModel by viewModels()
 
     override fun onResume() {

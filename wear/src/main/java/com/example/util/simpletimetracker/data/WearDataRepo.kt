@@ -82,7 +82,9 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
             .put("kind",kind).put("occurred_at",System.currentTimeMillis() / 1000 * 1000)
         if (activity != null) op.put("activity_id",activity)
         if (session != null) op.put("session_id",session)
-        database(config).enqueue(op); changes.tryEmit(Unit)
+        database(config).enqueue(op)
+        WatchCloudRetryJobService.scheduleSoon(context)
+        changes.tryEmit(Unit)
     }
     suspend fun loadActivities(forceReload: Boolean): Result<List<WearActivity>> = local { activities().map(::mapped) }
     suspend fun loadCurrentActivities(forceReload: Boolean): Result<WearCurrentState> = local {

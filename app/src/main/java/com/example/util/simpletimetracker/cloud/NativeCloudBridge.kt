@@ -8,6 +8,9 @@ import com.example.util.simpletimetracker.domain.record.interactor.RecordsUpdate
 import com.example.util.simpletimetracker.domain.record.model.Record
 import com.example.util.simpletimetracker.domain.record.model.RunningRecord
 import com.example.util.simpletimetracker.domain.recordType.model.RecordType
+import com.example.util.simpletimetracker.domain.recordTag.repo.RecordTagRepo
+import com.example.util.simpletimetracker.domain.recordTag.model.RecordTag
+import com.example.util.simpletimetracker.domain.recordTag.model.RecordTagValueType
 import com.example.util.simpletimetracker.domain.recordType.repo.RecordTypeRepo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -24,6 +27,7 @@ import javax.inject.Singleton
 class NativeCloudBridge @Inject constructor(
     @ApplicationContext private val context: Context,
     private val types: RecordTypeRepo,
+    private val tags: RecordTagRepo,
     private val records: RecordInteractor,
     private val running: RunningRecordInteractor,
     private val updates: RecordsUpdateInteractor,
@@ -66,6 +70,7 @@ class NativeCloudBridge @Inject constructor(
         }
         db.setMeta("native_seen", seen.toString()); db.setMeta("native_import", "{}")
         ensureFixedActivities(db)
+        ensureFixedTags()
         val local = snapshot(db, config.device)
         val allKeys = (local.keys().asSequence().toList() + seen.keys().asSequence().toList()).distinct()
         for (key in allKeys.sortedBy { if (it.startsWith("a:")) 0 else 1 }) {
@@ -124,6 +129,18 @@ class NativeCloudBridge @Inject constructor(
                 db.setMeta("native_type:$typeId", entry.id)
                 db.setMeta("native_type_id:${entry.id}", typeId.toString())
             }
+        }
+    }
+
+    /** Phone-only tags: stable defaults; never delete existing user-created tags. */
+    private suspend fun ensureFixedTags() {
+        val found = tags.getAll().map { it.name }.toSet()
+        for (name in listOf("计划", "专注", "资料整理", "深度工作", "协作沟通", "复盘", "中断", "临时事务")) {
+            if (name in found) continue
+            tags.add(RecordTag(
+                name = name, icon = "ic_book", color = AppColor(0, ""),
+                iconColorSource = 0, note = "", valueType = RecordTagValueType.NONE, valueSuffix = "",
+            ))
         }
     }
 

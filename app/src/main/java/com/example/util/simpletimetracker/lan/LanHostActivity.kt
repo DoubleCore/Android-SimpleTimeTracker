@@ -43,6 +43,7 @@ class LanHostActivity : ComponentActivity() {
     @Inject lateinit var records: RecordInteractor
     @Inject lateinit var updates: RecordsUpdateInteractor
     @Inject lateinit var runningUpdates: UpdateRunningRecordsInteractor
+    @Inject lateinit var cloudBridge: com.example.util.simpletimetracker.cloud.NativeCloudBridge
 
     private val operations = Mutex()
     private var server: LanHttpServer? = null
@@ -137,6 +138,7 @@ class LanHostActivity : ComponentActivity() {
             if (current == null) {
                 running.add(RunningRecord(typeId, ms, "", emptyList()))
                 updates.send(); runningUpdates.sendFullUpdate()
+                cloudBridge.notifyLocalChange()
             }
             return 200 to JSONObject().put("protocol", 1).put("ok", true).put("started_at", (current ?: running.get(typeId)!!).timeStarted)
         }
@@ -156,6 +158,7 @@ class LanHostActivity : ComponentActivity() {
             }
             running.remove(typeId)
             updates.send(); runningUpdates.sendFullUpdate()
+            cloudBridge.notifyLocalChange()
             return 200 to JSONObject().put("protocol", 1).put("ok", true)
         }
         return 400 to error("invalid_kind")

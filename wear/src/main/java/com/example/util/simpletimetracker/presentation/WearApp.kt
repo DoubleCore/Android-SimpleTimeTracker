@@ -9,4 +9,9 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class WearApp : Application()
+class WearApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        com.example.util.simpletimetracker.data.WatchCloudRetryJobService.ensurePeriodic(this)
+    }
+}

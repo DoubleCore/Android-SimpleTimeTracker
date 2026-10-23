@@ -43,13 +43,11 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
             while (isActive) {
                 try {
                     val config = CloudConfig(context)
-                    if (lan.configured()) {
-                        refreshLan()
-                        changes.emit(Unit)
-                    } else if (config.url.isNotEmpty()) {
-                        CloudSync().run(database(config), config.url, config.token)
-                        changes.emit(Unit)
-                    }
+                    // Phone LAN remains the low-latency state source.
+                    // Any earlier Watch cloud outbox is flushed independently when configured.
+                    if (lan.configured()) refreshLan()
+                    if (config.url.isNotEmpty()) CloudSync().run(database(config), config.url, config.token)
+                    if (lan.configured() || config.url.isNotEmpty()) changes.emit(Unit)
                 } catch (e: CancellationException) { throw e } catch (_: Exception) { changes.emit(Unit) }
                 delay(2000)
             }
@@ -82,7 +80,9 @@ class WearDataRepo @Inject constructor(@ApplicationContext private val context: 
             .put("kind",kind).put("occurred_at",System.currentTimeMillis() / 1000 * 1000)
         if (activity != null) op.put("activity_id",activity)
         if (session != null) op.put("session_id",session)
-        database(config).enqueue(op); changes.tryEmit(Unit)
+        database(config).enqueue(op)
+        WatchCloudRetryJobService.scheduleSoon(context)
+        changes.tryEmit(Unit)
     }
     suspend fun loadActivities(forceReload: Boolean): Result<List<WearActivity>> = local { activities().map(::mapped) }
     suspend fun loadCurrentActivities(forceReload: Boolean): Result<WearCurrentState> = local {

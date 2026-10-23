@@ -65,6 +65,7 @@ class NativeCloudBridge @Inject constructor(
             seen.put(key, value)
         }
         db.setMeta("native_seen", seen.toString()); db.setMeta("native_import", "{}")
+        ensureFixedActivities(db)
         val local = snapshot(db, config.device)
         val allKeys = (local.keys().asSequence().toList() + seen.keys().asSequence().toList()).distinct()
         for (key in allKeys.sortedBy { if (it.startsWith("a:")) 0 else 1 }) {
@@ -104,6 +105,26 @@ class NativeCloudBridge @Inject constructor(
             externalViews.onAppStart()
         }
         status = (if (complete) "云端已连接" else "补传中／等待服务器升级") + " · 待同步 ${db.pending().size} · 需处理 ${db.rejected().size}"
+    }
+
+    /** Install a fixed Chinese catalog into the existing Room database without deleting user history. */
+    private suspend fun ensureFixedActivities(db: CloudStore) {
+        val existing = types.getAll()
+        for (entry in FixedActivities.ALL) {
+            val typeId = existing.firstOrNull { it.name == entry.name }?.id
+                ?: types.add(RecordType(
+                    name = entry.name,
+                    icon = "ic_book",
+                    color = AppColor(0, ""),
+                    defaultDuration = 0,
+                    note = "",
+                ))
+            // Never re-key an activity which has already been synced.
+            if (db.meta("native_type:$typeId", "").isEmpty()) {
+                db.setMeta("native_type:$typeId", entry.id)
+                db.setMeta("native_type_id:${entry.id}", typeId.toString())
+            }
+        }
     }
 
     private fun uuid(device: String, key: String) = UUID.nameUUIDFromBytes("$device:$key".toByteArray()).toString()

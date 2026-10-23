@@ -7,6 +7,8 @@
 
     <Button android:id="@+id/cloudSyncStatus" android:layout_width="match_parent"
         android:layout_height="48dp" android:text="云同步 · 连接设置" android:textAllCaps="false" />
+    <Button android:id="@+id/chineseCatalog" android:layout_width="match_parent"
+        android:layout_height="48dp" android:text="中文活动与标签（固定预置）" android:textAllCaps="false" />
     <Button android:id="@+id/aiAutoTags" android:layout_width="match_parent"
         android:layout_height="48dp" android:text="AI自动分类 · 购买的模型API" android:textAllCaps="false" />
     <Button android:id="@+id/lanDirect" android:layout_width="match_parent"

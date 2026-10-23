@@ -46,6 +46,9 @@ class MainActivity : BaseActivity<Binding>() {
         binding.cloudSyncStatus.setOnClickListener {
             startActivity(android.content.Intent(this, org.doublecore.stt.cloud.CloudSettingsActivity::class.java))
         }
+        binding.aiAutoTags.setOnClickListener {
+            startActivity(android.content.Intent(this, com.example.util.simpletimetracker.ai.PhoneAiSettingsActivity::class.java))
+        }
         binding.lanDirect.setOnClickListener {
             startActivity(android.content.Intent(this, com.example.util.simpletimetracker.lan.LanHostActivity::class.java))
         }

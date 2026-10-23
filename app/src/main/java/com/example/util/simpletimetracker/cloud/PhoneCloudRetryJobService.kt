@@ -24,13 +24,16 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class PhoneCloudRetryJobService : JobService() {
     @Inject lateinit var bridge: NativeCloudBridge
+    @Inject lateinit var tagger: com.example.util.simpletimetracker.ai.PhoneAiTagger
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var running: Job? = null
 
     override fun onStartJob(params: JobParameters): Boolean {
         running = scope.launch {
-            val success = bridge.syncScheduled()
-            if (isActive) jobFinished(params, !success)
+            // Both tasks are independent: a cloud outage must not block direct phone AI.
+            val classified = tagger.syncScheduled()
+            val uploaded = bridge.syncScheduled()
+            if (isActive) jobFinished(params, !(classified && uploaded))
         }
         return true
     }

@@ -11,7 +11,7 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-/** Direct, foreground-only Wi-Fi connection to the STT phone app. No Google APIs. */
+/** Wi-Fi client for transferring watch-owned completed records to the phone. No Google APIs. */
 public final class LanConnection {
     public static final int PORT = 8765;
     private final SharedPreferences prefs;
@@ -42,7 +42,7 @@ public final class LanConnection {
     }
     public JSONObject request(String method, String path, JSONObject payload) throws Exception {
         if (!configured()) throw new IOException("先设置手机IP与配对密钥");
-        if (!path.equals("/v1/state") && !path.equals("/v1/action")) throw new IOException("非法接口");
+        if (!path.equals("/v1/state") && !path.equals("/v1/import")) throw new IOException("非法接口");
         if (!(method.equals("GET") || method.equals("POST"))) throw new IOException("非法方法");
         checkIp(address());
         HttpURLConnection c = (HttpURLConnection) new URL("http://" + address() + ":" + PORT + path).openConnection();

@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import org.doublecore.stt.cloud.CloudConfig
 import org.doublecore.stt.cloud.CloudStore
 import org.doublecore.stt.cloud.CloudSync
+import org.doublecore.stt.cloud.LanConnection
+import org.doublecore.stt.cloud.WatchLanStore
 import java.util.concurrent.TimeUnit
 
 /**
@@ -34,6 +36,19 @@ class WatchCloudRetryJobService : JobService() {
                 if (config.url.isNotEmpty()) {
                     CloudStore(applicationContext, config.databaseName()).use { db ->
                         success = CloudSync().run(db, config.url, config.token)
+                    }
+                }
+            } catch (_: Exception) {
+                success = false
+            }
+            // Watch LAN records are independent of cloud-mode outbox records.
+            // Always try each path separately; failure of one must not block the other.
+            try {
+                val lan = LanConnection(applicationContext)
+                if (lan.configured()) {
+                    WatchLanStore(applicationContext).use { local ->
+                        local.synchronize(lan)
+                        if (local.pendingCount() > 0) success = false
                     }
                 }
             } catch (_: Exception) {

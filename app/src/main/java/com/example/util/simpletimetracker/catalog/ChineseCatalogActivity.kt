@@ -65,6 +65,10 @@ class ChineseCatalogActivity : ComponentActivity() {
                         val result = withContext(Dispatchers.IO) {
                             catalogue.importWithoutOverwriting()
                         }
+                        if (result.activitiesCreated > 0 || result.tagsCreated > 0 || result.linksCreated > 0) {
+                            getSharedPreferences("timetrak_cn_catalog_v1", MODE_PRIVATE)
+                                .edit().putBoolean("refresh_pending", true).apply()
+                        }
                         status.text = "已完成：新建活动 ${result.activitiesCreated} 项，新建标签 ${result.tagsCreated} 项，补充关联 ${result.linksCreated} 项。已有记录不变。"
                     } catch (failure: Exception) {
                         status.text = "导入中断：${failure.message ?: "未知错误"}。已有数据不会清空，可再次点击继续。"

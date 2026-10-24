@@ -15,7 +15,7 @@ public final class CloudSettingsActivity extends Activity {
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
         int padding = (int)(28 * getResources().getDisplayMetrics().density);
         root.setPadding(padding,padding,padding,padding); scroll.addView(root); setContentView(scroll);
-        TextView title = new TextView(this); title.setText("时间记录 · 云同步设置"); title.setTextSize(20); root.addView(title);
+        TextView title = new TextView(this); title.setText("时间记录 · 手机与手表同步设置"); title.setTextSize(20); root.addView(title);
         EditText address = new EditText(this); address.setSingleLine(true); address.setHint("服务器 HTTPS 地址"); root.addView(address);
         EditText secret = new EditText(this); secret.setSingleLine(true);
         secret.setHint("手机、手表填写同一密钥"); secret.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD); root.addView(secret);
@@ -36,7 +36,7 @@ public final class CloudSettingsActivity extends Activity {
             });
             Button details = new Button(this); details.setText("同步状态与待处理操作"); root.addView(details);
             details.setOnClickListener(v -> startActivity(new android.content.Intent(this,CloudActivity.class)));
-            status.setText("正常计时在应用主界面进行。联网后同步，断网保留本地记录。手机已有计时历史将在连接后上传到这个私人服务器。");
+            status.setText("当前正式版采用 HTTPS 服务器中转：手机和手表分别上传计时记录，再自动拉取另一端的更新；断网时保留本地数据。Wi-Fi 局域网直接同步目前仅有独立连通性测试，尚未接入本 APK；此处不会假装已经启用直连。");
         } catch(Exception e) { status.setText("配置读取失败：" + e.getMessage()); }
     }
 }

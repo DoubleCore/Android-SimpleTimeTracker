@@ -175,8 +175,8 @@ class NativeCloudBridge @Inject constructor(
                 "协作沟通", "复盘", "中断", "临时事务")) {
                 tags.add(RecordTag(
                     name = name,
-                    icon = "ic_book",
-                    color = AppColor(colorId = 6, colorInt = ""),
+                    icon = "ic_assignment_24px",
+                    color = AppColor(colorId = 3, colorInt = ""),
                     iconColorSource = 0L,
                     note = "",
                     valueType = RecordTagValueType.NONE,

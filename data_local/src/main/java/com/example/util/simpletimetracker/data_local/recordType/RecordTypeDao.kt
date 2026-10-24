@@ -20,6 +20,10 @@ interface RecordTypeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: RecordTypeDBO): Long
 
+    // UPDATE rather than REPLACE: retain the same row/FKs and all historical sessions.
+    @Query("UPDATE recordTypes SET name = :name WHERE id = :id")
+    suspend fun rename(id: Long, name: String)
+
     @Query("UPDATE recordTypes SET hidden = 1 WHERE id = :id")
     suspend fun archive(id: Long)
 

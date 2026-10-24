@@ -59,12 +59,17 @@ class SettingsViewModel @Inject constructor(
                 val value = wearPrefsInteractor.getWearShowCompactList()
                 wearPrefsInteractor.setWearShowCompactList(!value)
             }
+            is SettingsItemType.GroupByCategory -> {
+                val value = wearPrefsInteractor.getWearGroupByCategory()
+                wearPrefsInteractor.setWearGroupByCategory(!value)
+            }
         }
         loadData(forceReload = true)
     }
 
     private suspend fun loadData(forceReload: Boolean) {
         val showCompactList = wearPrefsInteractor.getWearShowCompactList()
+        val groupByCategory = wearPrefsInteractor.getWearGroupByCategory()
         val settings = wearDataRepo.loadSettings(forceReload)
 
         when {
@@ -75,6 +80,7 @@ class SettingsViewModel @Inject constructor(
                 this.settings = settings.getOrNull()
                 _state.value = settingsViewDataMapper.mapContentState(
                     showCompactList = showCompactList,
+                    groupByCategory = groupByCategory,
                     wearSettings = this.settings ?: return,
                 )
             }

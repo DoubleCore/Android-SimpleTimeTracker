@@ -183,6 +183,8 @@ class ActivitiesViewModel @Inject constructor(
                     lastRecords = currentState.getOrNull()?.lastRecords.orEmpty(),
                     settings = settings.getOrNull(),
                     showCompactList = wearPrefsInteractor.getWearShowCompactList(),
+                    categories = wearDataRepo.loadCategories().getOrNull().orEmpty(),
+                    groupByCategory = wearPrefsInteractor.getWearGroupByCategory(),
                 )
             }
         }

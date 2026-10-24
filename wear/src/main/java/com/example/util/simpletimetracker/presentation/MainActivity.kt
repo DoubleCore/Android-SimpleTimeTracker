@@ -8,6 +8,7 @@ package com.example.util.simpletimetracker.presentation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.example.util.simpletimetracker.data.WearDataRepo
 import com.example.util.simpletimetracker.navigation.WearActionResolver
 import com.example.util.simpletimetracker.navigation.WearNavigator
 import com.example.util.simpletimetracker.presentation.theme.WearTheme
@@ -20,6 +21,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var wearActionResolver: WearActionResolver
 
+    @Inject
+    lateinit var wearDataRepo: WearDataRepo
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         wearActionResolver.registerResultListeners(this)
@@ -29,5 +33,15 @@ class MainActivity : ComponentActivity() {
                 WearNavigator()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        wearDataRepo.setForeground(true)
+    }
+
+    override fun onPause() {
+        wearDataRepo.setForeground(false)
+        super.onPause()
     }
 }

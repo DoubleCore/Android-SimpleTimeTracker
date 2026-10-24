@@ -1,7 +1,7 @@
 name: Full phone and Watch APK
 on:
   push:
-    branches: [feature/xiaomi-watch5-lan-v159, feature/timetrak-zh-presets-settings-20261023]
+    branches: [feature/xiaomi-watch5-lan-v159, feature/timetrak-zh-presets-settings-20261023, feature/watch-lan-realtime-sync]
     paths: ['server/cloud-sync/**', 'cloud_sync/**', 'app/**', 'wear/**', 'data_local/**', 'domain/**', 'features/feature_settings/**', 'features/feature_dialogs/**', 'tools/cloud-app/**', '.github/workflows/cloud-sync.yml']
   workflow_dispatch:
 permissions:
@@ -25,6 +25,8 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - run: sdkmanager 'platforms;android-35' 'platforms;android-34' 'build-tools;34.0.0' 'build-tools;35.0.0'
+      - name: LAN protocol and applier unit tests
+        run: bash ./gradlew :cloud_sync:testDebugUnitTest :app:testBaseDebugUnitTest :wear:testDebugUnitTest --no-daemon
       - name: Build complete phone and native Watch applications
         run: bash ./gradlew :app:assembleBaseDebug :wear:assembleDebug --no-daemon
       - name: Package installable APKs

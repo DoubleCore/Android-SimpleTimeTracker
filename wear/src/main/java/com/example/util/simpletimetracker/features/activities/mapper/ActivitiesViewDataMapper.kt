@@ -16,6 +16,7 @@ import com.example.util.simpletimetracker.domain.base.UNTRACKED_ITEM_ID
 import com.example.util.simpletimetracker.domain.extension.orZero
 import com.example.util.simpletimetracker.domain.model.WearActivity
 import com.example.util.simpletimetracker.domain.model.WearActivityIcon
+import com.example.util.simpletimetracker.domain.model.WearCategory
 import com.example.util.simpletimetracker.domain.model.WearCurrentActivity
 import com.example.util.simpletimetracker.domain.model.WearLastRecord
 import com.example.util.simpletimetracker.domain.model.WearSettings
@@ -54,6 +55,8 @@ class ActivitiesViewDataMapper @Inject constructor(
         lastRecords: List<WearLastRecord>,
         settings: WearSettings?,
         showCompactList: Boolean,
+        categories: List<WearCategory> = emptyList(),
+        groupByCategory: Boolean = false,
     ): ActivitiesListState.Content {
         val activitiesMap = activities.associateBy { it.id }
         val currentActivitiesMap = currentActivities.associateBy { it.id }
@@ -99,16 +102,20 @@ class ActivitiesViewDataMapper @Inject constructor(
             items += mapRepeatItem()
         }
 
-        items += activities.map { activity ->
-            mapItem(
-                activity = activity,
-                currentActivitiesMap = currentActivitiesMap,
-                lastRecords = lastRecords,
-                showCompactList = showCompactList,
-                retroactiveModeEnabled = retroactiveModeEnabled,
-            ).let {
-                ActivitiesListState.Content.Item.Button(it)
-            }
+        fun button(activity: WearActivity) = mapItem(
+            activity = activity,
+            currentActivitiesMap = currentActivitiesMap,
+            lastRecords = lastRecords,
+            showCompactList = showCompactList,
+            retroactiveModeEnabled = retroactiveModeEnabled,
+        ).let {
+            ActivitiesListState.Content.Item.Button(it)
+        }
+
+        if (groupByCategory && categories.isNotEmpty()) {
+            items += mapGrouped(activities, categories, ::button)
+        } else {
+            items += activities.map(::button)
         }
 
         return ActivitiesListState.Content(
@@ -116,6 +123,31 @@ class ActivitiesViewDataMapper @Inject constructor(
             hint = hint,
             items = items,
         )
+    }
+
+    /**
+     * Category sections in the phone's category order. An activity in several
+     * categories appears in each, like on the phone; the rest go to "uncategorized".
+     */
+    private fun mapGrouped(
+        activities: List<WearActivity>,
+        categories: List<WearCategory>,
+        button: (WearActivity) -> ActivitiesListState.Content.Item.Button,
+    ): List<ActivitiesListState.Content.Item> {
+        val result = mutableListOf<ActivitiesListState.Content.Item>()
+        for (category in categories) {
+            val members = activities.filter { category.id in it.categoryIds }
+            if (members.isEmpty()) continue
+            result += ActivitiesListState.Content.Item.Header(category.name)
+            result += members.map(button)
+        }
+        val categoryIds = categories.map(WearCategory::id).toSet()
+        val uncategorized = activities.filter { activity -> activity.categoryIds.none { it in categoryIds } }
+        if (uncategorized.isNotEmpty()) {
+            result += ActivitiesListState.Content.Item.Header(resourceRepo.getString(R.string.uncategorized_time_name))
+            result += uncategorized.map(button)
+        }
+        return result
     }
 
     private fun mapItem(

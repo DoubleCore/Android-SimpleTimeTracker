@@ -23,28 +23,19 @@ class GetDefaultRecordTypesInteractor @Inject constructor() {
 
     private val defaultTypes: List<DefaultRecordType> by lazy {
         listOf(
-            DefaultRecordType(name = "Games", icon = "ic_headset_24px", colorId = 1),
-            DefaultRecordType(name = "Tv", icon = "ic_desktop_windows_24px", colorId = 1),
-            DefaultRecordType(name = "Youtube", icon = "ic_ondemand_video_24px", colorId = 1),
-
-            DefaultRecordType(name = "Exercise", icon = "ic_fitness_center_24px", colorId = 3),
-            DefaultRecordType(name = "Meditate", icon = "ic_lightbulb_outline_24px", colorId = 3),
-            DefaultRecordType(name = "Read", icon = "ic_import_contacts_24px", colorId = 3),
-
-            DefaultRecordType(name = "Chores", icon = "ic_assignment_24px", colorId = 5),
-            DefaultRecordType(name = "Cleaning", icon = "ic_delete_24px", colorId = 5),
-            DefaultRecordType(name = "Outdoors", icon = "ic_directions_walk_24px", colorId = 5),
-            DefaultRecordType(name = "Indoors", icon = "ic_extension_24px", colorId = 5),
-            DefaultRecordType(name = "Shopping", icon = "ic_shopping_cart_24px", colorId = 5),
-
-            DefaultRecordType(name = "Cooking", icon = "ic_restaurant_menu_24px", colorId = 7),
-            DefaultRecordType(name = "Breakfast", icon = "ic_free_breakfast_24px", colorId = 7),
-            DefaultRecordType(name = "Lunch", icon = "ic_restaurant_24px", colorId = 7),
-            DefaultRecordType(name = "Dinner", icon = "ic_local_bar_24px", colorId = 7),
-
-            DefaultRecordType(name = "Sleep", icon = "ic_airline_seat_individual_suite_24px", colorId = 10),
-            DefaultRecordType(name = "Commute", icon = "ic_airport_shuttle_24px", colorId = 10),
-            DefaultRecordType(name = "Work", icon = "ic_business_center_24px", colorId = 10),
+            // Only the preset DATA changes; existing card styles, icon resources and layout do not.
+            DefaultRecordType(name = "深度学习", icon = "ic_import_contacts_24px", colorId = 1),
+            DefaultRecordType(name = "科研工作", icon = "ic_business_center_24px", colorId = 1),
+            DefaultRecordType(name = "编程开发", icon = "ic_desktop_windows_24px", colorId = 1),
+            DefaultRecordType(name = "课程学习", icon = "ic_assignment_24px", colorId = 3),
+            DefaultRecordType(name = "阅读", icon = "ic_import_contacts_24px", colorId = 3),
+            DefaultRecordType(name = "写作整理", icon = "ic_assignment_24px", colorId = 3),
+            DefaultRecordType(name = "会议交流", icon = "ic_business_center_24px", colorId = 5),
+            DefaultRecordType(name = "日常事务", icon = "ic_extension_24px", colorId = 5),
+            DefaultRecordType(name = "运动", icon = "ic_fitness_center_24px", colorId = 7),
+            DefaultRecordType(name = "休息", icon = "ic_lightbulb_outline_24px", colorId = 7),
+            DefaultRecordType(name = "生活", icon = "ic_restaurant_menu_24px", colorId = 7),
+            DefaultRecordType(name = "睡眠", icon = "ic_airline_seat_individual_suite_24px", colorId = 10),
         )
     }
 

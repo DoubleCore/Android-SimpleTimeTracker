@@ -26,8 +26,16 @@ interface RecordTypeDao {
 
     // Cloud updates must not use INSERT OR REPLACE: that deletes a row before re-inserting it.
     @Query("UPDATE recordTypes SET name=:name, icon=:icon, color=:colorId, color_int=:colorInt, instantDuration=:duration, note=:note, hidden=:hidden WHERE id=:id")
-    suspend fun updateMetadata(id: Long, name: String, icon: String, colorId: Int,
-        colorInt: String, duration: Long, note: String, hidden: Boolean)
+    suspend fun updateMetadata(
+        id: Long,
+        name: String,
+        icon: String,
+        colorId: Int,
+        colorInt: String,
+        duration: Long,
+        note: String,
+        hidden: Boolean,
+    )
 
     @Query("UPDATE recordTypes SET hidden = 1 WHERE id = :id")
     suspend fun archive(id: Long)

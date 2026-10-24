@@ -69,6 +69,7 @@ sealed interface ActivitiesListState {
         sealed interface Item {
             data object Divider : Item
             data class Button(val data: ActivityChipState) : Item
+            data class Header(val text: String) : Item
         }
     }
 }
@@ -192,6 +193,9 @@ private fun ScalingLazyListScope.renderContentFull(
             is ActivitiesListState.Content.Item.Button -> {
                 renderItem(itemState.data)
             }
+            is ActivitiesListState.Content.Item.Header -> {
+                item { Hint(HintState(itemState.text)) }
+            }
         }
     }
 }
@@ -251,6 +255,11 @@ private fun ScalingLazyListScope.renderContentCompact(
                 renderItems(currentPack)
                 currentPack.clear()
                 item { Divider() }
+            }
+            is ActivitiesListState.Content.Item.Header -> {
+                renderItems(currentPack)
+                currentPack.clear()
+                item { Hint(HintState(itemsState.text)) }
             }
             is ActivitiesListState.Content.Item.Button -> {
                 currentPack += itemsState

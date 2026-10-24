@@ -10,4 +10,5 @@ data class WearActivity(
     val name: String,
     val icon: String,
     val color: Long,
+    val categoryIds: List<Long> = emptyList(),
 )

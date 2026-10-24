@@ -20,12 +20,15 @@ class VoiceDescriptionFragment : Fragment() {
         super.onCreate(state)
         if (state == null) {
             try {
-                startActivityForResult(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
-                    putExtra(RecognizerIntent.EXTRA_PROMPT, "说出记录描述")
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                }, 1)
+                startActivityForResult(
+                    Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "说出记录描述")
+                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                    },
+                    1,
+                )
             } catch (_: ActivityNotFoundException) {
                 message("设备没有可用的语音识别服务，请使用键盘输入")
                 close()
@@ -46,7 +49,10 @@ class VoiceDescriptionFragment : Fragment() {
         }
         // Text is only applied after explicit confirmation; cancelling never modifies the draft.
         val host = activity ?: return
-        val preview = EditText(host).apply { setText(words); minLines = 2 }
+        val preview = EditText(host).apply {
+            setText(words)
+            minLines = 2
+        }
         AlertDialog.Builder(host)
             .setTitle("确认语音描述")
             .setView(preview)

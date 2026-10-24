@@ -72,6 +72,12 @@ class SettingsMainViewDataInteractor @Inject constructor(
         )
 
         result += SettingsTextViewData(
+            block = SettingsBlock.TimeTrakLan,
+            title = "TimeTrak · 手表 Wi-Fi 直连",
+            subtitle = "手表本地计时，经局域网实时同步到手机历史",
+        )
+
+        result += SettingsTextViewData(
             block = SettingsBlock.Archive,
             title = resourceRepo.getString(R.string.settings_archive),
             subtitle = "",

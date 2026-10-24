@@ -20,8 +20,13 @@ class WearPrefsRepoImpl @Inject constructor(
         KEY_WEAR_SHOW_COMPACT_LIST, false,
     )
 
+    override var wearGroupByCategory: Boolean by prefs.delegate(
+        KEY_WEAR_GROUP_BY_CATEGORY, false,
+    )
+
     @Suppress("unused")
     companion object {
         private const val KEY_WEAR_SHOW_COMPACT_LIST = "wearShowCompactList"
+        private const val KEY_WEAR_GROUP_BY_CATEGORY = "wearGroupByCategory"
     }
 }

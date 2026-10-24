@@ -5,11 +5,14 @@
  */
 package com.example.util.simpletimetracker.features.settings.screen
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.util.simpletimetracker.features.settings.ui.SettingsItemType
 import com.example.util.simpletimetracker.features.settings.viewModel.SettingsViewModel
+import com.example.util.simpletimetracker.presentation.LanPairingActivity
 
 @Composable
 fun SettingsScreen() {
@@ -22,13 +25,14 @@ fun SettingsScreen() {
         state = state,
         onRefresh = viewModel::onRefresh,
         onSettingClick = { type ->
-            if (type == com.example.util.simpletimetracker.features.settings.ui.SettingsItemType.CloudConnection) {
-                context.startActivity(android.content.Intent(
-                    context,
-                    org.doublecore.stt.cloud.CloudSettingsActivity::class.java,
-                ))
-            } else {
-                viewModel.onSettingClick(type)
+            when (type) {
+                SettingsItemType.CloudConnection -> context.startActivity(
+                    Intent(context, org.doublecore.stt.cloud.CloudSettingsActivity::class.java),
+                )
+                SettingsItemType.LanConnection -> context.startActivity(
+                    Intent(context, LanPairingActivity::class.java),
+                )
+                else -> viewModel.onSettingClick(type)
             }
         },
     )

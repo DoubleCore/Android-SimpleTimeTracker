@@ -21,4 +21,12 @@ class WearPrefsInteractor @Inject constructor(
     suspend fun setWearShowCompactList(enabled: Boolean) = withContext(Dispatchers.IO) {
         wearPrefsRepo.wearShowCompactList = enabled
     }
+
+    suspend fun getWearGroupByCategory(): Boolean = withContext(Dispatchers.IO) {
+        wearPrefsRepo.wearGroupByCategory
+    }
+
+    suspend fun setWearGroupByCategory(enabled: Boolean) = withContext(Dispatchers.IO) {
+        wearPrefsRepo.wearGroupByCategory = enabled
+    }
 }

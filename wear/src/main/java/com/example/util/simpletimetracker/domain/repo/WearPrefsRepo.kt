@@ -8,4 +8,6 @@ package com.example.util.simpletimetracker.domain.repo
 interface WearPrefsRepo {
 
     var wearShowCompactList: Boolean
+
+    var wearGroupByCategory: Boolean
 }

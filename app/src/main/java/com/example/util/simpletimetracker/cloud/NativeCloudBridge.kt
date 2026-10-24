@@ -14,10 +14,20 @@ import com.example.util.simpletimetracker.domain.recordTag.model.RecordTag
 import com.example.util.simpletimetracker.domain.recordTag.model.RecordTagValueType
 import com.example.util.simpletimetracker.feature_dialogs.defaultTypesSelection.interactor.GetDefaultRecordTypesInteractor
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.doublecore.stt.cloud.*
+import kotlinx.coroutines.withTimeoutOrNull
+import org.doublecore.stt.cloud.CloudConfig
+import org.doublecore.stt.cloud.CloudStore
+import org.doublecore.stt.cloud.CloudSync
 import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
@@ -45,13 +55,63 @@ class NativeCloudBridge @Inject constructor(
     @Volatile var status: String = "云同步未连接"
         private set
 
+    private val wake = Channel<Unit>(Channel.CONFLATED)
+
     fun start() {
         if (job != null) return
+        scope.launch { updates.dataUpdated.collect { wake.trySend(Unit) } }
+        scope.launch { runningUpdates.fullUpdate.collect { wake.trySend(Unit) } }
         job = scope.launch {
             while (isActive) {
-                try { sync(); } catch (e: CancellationException) { throw e }
-                catch (e: Exception) { status = "同步待重试：${e.message}" }
-                delay(2000)
+                try {
+                    sync()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    status = "同步待重试：${e.message}"
+                }
+                withTimeoutOrNull(2000L) { wake.receive() }
+            }
+        }
+    }
+
+    /** Called after the phone committed watch data into Room: upload promptly, with a durable fallback. */
+    fun notifyLocalChange() {
+        wake.trySend(Unit)
+        PhoneCloudRetryJobService.scheduleSoon(context)
+    }
+
+    /** JobScheduler fallback: a process restart never skips the durable Room history. */
+    suspend fun syncScheduled(): Boolean = try {
+        sync()
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        status = "自动补传待重试：${e.message}"
+        false
+    }
+
+    /**
+     * A watch session imported over LAN must keep the watch UUID in the cloud too,
+     * otherwise the snapshot would derive a second UUID for the same Room record.
+     * Stored durably first, so it also applies when cloud sync is configured later.
+     */
+    fun adoptSessionUuid(sessionId: String, typeId: Long, startedAt: Long, recordId: Long?) {
+        val prefs = context.getSharedPreferences(ADOPT_PREFS, Context.MODE_PRIVATE)
+        val edit = prefs.edit().putString("native_run:$typeId:$startedAt", sessionId)
+        if (recordId != null) edit.putString("native_record:$recordId", sessionId)
+        edit.commit()
+    }
+
+    private fun applyAdoptedSessions(db: CloudStore) {
+        val adopted = context.getSharedPreferences(ADOPT_PREFS, Context.MODE_PRIVATE).all
+        for ((key, value) in adopted) {
+            val sessionId = value as? String ?: continue
+            if (db.meta(key, "").isNotEmpty()) continue
+            db.setMeta(key, sessionId)
+            if (key.startsWith("native_record:")) {
+                db.setMeta("native_record_id:$sessionId", key.removePrefix("native_record:"))
             }
         }
     }
@@ -66,9 +126,12 @@ class NativeCloudBridge @Inject constructor(
         val config = CloudConfig(context)
         if (config.url.isEmpty()) return@withLock
         if (address != config.url) {
-            store?.close(); store = CloudStore(context, config.databaseName()); address = config.url
+            store?.close()
+            store = CloudStore(context, config.databaseName())
+            address = config.url
         }
         val db = requireNotNull(store)
+        applyAdoptedSessions(db)
         val seen = JSONObject(db.meta("native_seen", "{}"))
         // Replay an interrupted import before scanning Room, so it cannot become a spurious upload.
         val journal = JSONObject(db.meta("native_import", "{}"))
@@ -77,7 +140,8 @@ class NativeCloudBridge @Inject constructor(
             apply(db, key, value)
             seen.put(key, value)
         }
-        db.setMeta("native_seen", seen.toString()); db.setMeta("native_import", "{}")
+        db.setMeta("native_seen", seen.toString())
+        db.setMeta("native_import", "{}")
         val local = snapshot(db, config.device)
         val allKeys = (local.keys().asSequence().toList() + seen.keys().asSequence().toList()).distinct()
         for (key in allKeys.sortedBy { if (it.startsWith("a:")) 0 else 1 }) {
@@ -108,17 +172,18 @@ class NativeCloudBridge @Inject constructor(
                 db.setMeta("native_import", JSONObject().put(key, value).toString())
                 apply(db, key, value)
                 seen.put(key, value)
-                db.setMeta("native_seen", seen.toString()); db.setMeta("native_import", "{}")
+                db.setMeta("native_seen", seen.toString())
+                db.setMeta("native_import", "{}")
                 changed = true
             }
         }
         if (changed) {
-            updates.send(); runningUpdates.sendFullUpdate()
+            updates.send()
+            runningUpdates.sendFullUpdate()
             externalViews.onAppStart()
         }
         status = (if (complete) "云端已连接" else "补传中／等待服务器升级") + " · 待同步 ${db.pending().size} · 需处理 ${db.rejected().size}"
     }
-
 
     /**
      * One-time data-only upgrade: do not change any layout or record IDs.
@@ -171,17 +236,21 @@ class NativeCloudBridge @Inject constructor(
         }
 
         if (tags.getAll().isEmpty()) {
-            for (name in listOf("计划", "专注", "资料整理", "深度工作",
-                "协作沟通", "复盘", "中断", "临时事务")) {
-                tags.add(RecordTag(
-                    name = name,
-                    icon = "ic_assignment_24px",
-                    color = AppColor(colorId = 3, colorInt = ""),
-                    iconColorSource = 0L,
-                    note = "",
-                    valueType = RecordTagValueType.NONE,
-                    valueSuffix = "",
-                ))
+            for (name in listOf(
+                "计划", "专注", "资料整理", "深度工作",
+                "协作沟通", "复盘", "中断", "临时事务",
+            )) {
+                tags.add(
+                    RecordTag(
+                        name = name,
+                        icon = "ic_assignment_24px",
+                        color = AppColor(colorId = 3, colorInt = ""),
+                        iconColorSource = 0L,
+                        note = "",
+                        valueType = RecordTagValueType.NONE,
+                        valueSuffix = "",
+                    ),
+                )
                 changed = true
             }
         }
@@ -200,25 +269,35 @@ class NativeCloudBridge @Inject constructor(
     private fun typeUuid(db: CloudStore, device: String, id: Long): String {
         val key = "native_type:$id"
         val value = db.meta(key, uuid(device, key))
-        db.setMeta(key, value); db.setMeta("native_type_id:$value", id.toString())
+        db.setMeta(key, value)
+        db.setMeta("native_type_id:$value", id.toString())
         return value
     }
     private fun sessionUuid(db: CloudStore, device: String, type: Long, start: Long, recordId: Long?): String {
         val runKey = "native_run:$type:$start"
         val recordKey = "native_record:$recordId"
-        val value = if (recordId != null) db.meta(recordKey, db.meta(runKey, uuid(device, runKey)))
-            else db.meta(runKey, uuid(device, runKey))
+        val value = if (recordId != null) {
+            db.meta(recordKey, db.meta(runKey, uuid(device, runKey)))
+        } else {
+            db.meta(runKey, uuid(device, runKey))
+        }
         db.setMeta(runKey, value)
-        if (recordId != null) { db.setMeta(recordKey, value); db.setMeta("native_record_id:$value", recordId.toString()) }
+        if (recordId != null) {
+            db.setMeta(recordKey, value)
+            db.setMeta("native_record_id:$value", recordId.toString())
+        }
         return value
     }
     private suspend fun snapshot(db: CloudStore, device: String): JSONObject {
         val result = JSONObject()
         for (type in types.getAll()) {
             val id = typeUuid(db, device, type.id)
-            result.put("a:$id", JSONObject().put("id", id).put("name", type.name)
-                .put("icon", type.icon).put("color_id", type.color.colorId).put("color_int", type.color.colorInt)
-                .put("default_duration", type.defaultDuration).put("note", type.note).put("hidden", type.hidden))
+            result.put(
+                "a:$id",
+                JSONObject().put("id", id).put("name", type.name)
+                    .put("icon", type.icon).put("color_id", type.color.colorId).put("color_int", type.color.colorInt)
+                    .put("default_duration", type.defaultDuration).put("note", type.note).put("hidden", type.hidden),
+            )
         }
         // Scan completed records first; a stop creates the record before removing its running row.
         for (record in records.getAll()) {
@@ -234,23 +313,31 @@ class NativeCloudBridge @Inject constructor(
     private fun session(id: String, type: String, start: Long, end: Long?, comment: String) = JSONObject()
         .put("id", id).put("activity_id", type).put("started_at", start).put("ended_at", end ?: JSONObject.NULL)
         .put("comment", comment).put("deleted", false)
-    private fun normalize(prefix: String, value: JSONObject): JSONObject = if (prefix == "a:") JSONObject()
-        .put("id", value.getString("id")).put("name", value.getString("name"))
-        .put("icon", value.optString("icon", "ic_book")).put("color_id", value.optInt("color_id", 0))
-        .put("color_int", value.optString("color_int", "")).put("default_duration", value.optLong("default_duration", 0))
-        .put("note", value.optString("note", "")).put("hidden", value.optBoolean("hidden", false))
-    else session(value.getString("id"), value.getString("activity_id"), value.getLong("started_at") / 1000 * 1000,
-        if (value.isNull("ended_at")) null else value.getLong("ended_at") / 1000 * 1000, value.optString("comment", ""))
-        .put("deleted", value.optBoolean("deleted", false))
+    private fun normalize(prefix: String, value: JSONObject): JSONObject = if (prefix == "a:") {
+        JSONObject()
+            .put("id", value.getString("id")).put("name", value.getString("name"))
+            .put("icon", value.optString("icon", "ic_book")).put("color_id", value.optInt("color_id", 0))
+            .put("color_int", value.optString("color_int", "")).put("default_duration", value.optLong("default_duration", 0))
+            .put("note", value.optString("note", "")).put("hidden", value.optBoolean("hidden", false))
+    } else {
+        session(
+            value.getString("id"), value.getString("activity_id"), value.getLong("started_at") / 1000 * 1000,
+            if (value.isNull("ended_at")) null else value.getLong("ended_at") / 1000 * 1000, value.optString("comment", ""),
+        )
+            .put("deleted", value.optBoolean("deleted", false))
+    }
 
     private suspend fun apply(db: CloudStore, key: String, value: JSONObject) {
         val id = value.getString("id")
         if (key.startsWith("a:")) {
             val local = db.meta("native_type_id:$id", localId(id).toString()).toLong()
-            db.setMeta("native_type_id:$id", local.toString()); db.setMeta("native_type:$local", id)
-            val incoming = RecordType(local, value.getString("name"), value.getString("icon"),
+            db.setMeta("native_type_id:$id", local.toString())
+            db.setMeta("native_type:$local", id)
+            val incoming = RecordType(
+                local, value.getString("name"), value.getString("icon"),
                 AppColor(value.getInt("color_id"), value.getString("color_int")), value.getLong("default_duration"),
-                value.getString("note"), value.getBoolean("hidden"))
+                value.getString("note"), value.getBoolean("hidden"),
+            )
             // Preserve the original Room row and its historical record references.
             if (types.get(local) == null) types.add(incoming) else types.updateMetadata(incoming)
         } else {
@@ -258,7 +345,8 @@ class NativeCloudBridge @Inject constructor(
             val start = value.getLong("started_at")
             db.setMeta("native_run:$type:$start", id)
             val recordId = db.meta("native_record_id:$id", localId(id).toString()).toLong()
-            db.setMeta("native_record_id:$id", recordId.toString()); db.setMeta("native_record:$recordId", id)
+            db.setMeta("native_record_id:$id", recordId.toString())
+            db.setMeta("native_record:$recordId", id)
             val current = running.get(type)
             val sameRunning = current != null && db.meta("native_run:$type:${current.timeStarted}", "") == id
             if (value.optBoolean("deleted")) {
@@ -276,5 +364,9 @@ class NativeCloudBridge @Inject constructor(
     private fun same(a: JSONObject?, b: JSONObject?): Boolean {
         if (a == null || b == null) return a == b
         return a.length() == b.length() && a.keys().asSequence().all { a.opt(it).toString() == b.opt(it).toString() }
+    }
+
+    private companion object {
+        const val ADOPT_PREFS = "timetrak_lan_adopted_sessions"
     }
 }

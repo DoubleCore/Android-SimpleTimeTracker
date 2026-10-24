@@ -26,6 +26,7 @@ class SettingsViewDataMapper @Inject constructor(
 
     fun mapContentState(
         showCompactList: Boolean,
+        groupByCategory: Boolean,
         wearSettings: WearSettings,
     ): SettingsListState.Content {
         val items = mutableListOf<SettingsItem>()
@@ -43,6 +44,15 @@ class SettingsViewDataMapper @Inject constructor(
             type = SettingsItemType.ShowCompactList,
             text = resourceRepo.getString(R.string.wear_settings_title_show_compact_list),
             checked = showCompactList,
+        )
+        items += SettingsItem.CheckBox(
+            type = SettingsItemType.GroupByCategory,
+            text = "按分类分组显示",
+            checked = groupByCategory,
+        )
+        items += SettingsItem.Action(
+            type = SettingsItemType.LanConnection,
+            text = "Wi-Fi 直连手机",
         )
         items += SettingsItem.Action(
             type = SettingsItemType.CloudConnection,

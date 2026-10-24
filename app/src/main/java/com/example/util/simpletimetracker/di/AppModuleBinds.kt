@@ -13,6 +13,10 @@ import com.example.util.simpletimetracker.domain.daysOfWeek.interactor.GetCurren
 import com.example.util.simpletimetracker.domain.record.interactor.GetUntrackedRecordsInteractor
 import com.example.util.simpletimetracker.domain.darkMode.interactor.IsSystemInDarkModeInteractor
 import com.example.util.simpletimetracker.domain.fileExport.IsExportFormatAvailableInteractor
+import com.example.util.simpletimetracker.lan.LanRecordsGateway
+import com.example.util.simpletimetracker.lan.LanSessionStore
+import com.example.util.simpletimetracker.lan.PhoneLanStore
+import com.example.util.simpletimetracker.lan.RoomLanRecordsGateway
 import com.example.util.simpletimetracker.provider.ApplicationDataProviderImpl
 import dagger.Binds
 import dagger.Module
@@ -51,4 +55,12 @@ interface AppModuleBinds {
     @Binds
     @Singleton
     fun bindIsExportFormatAvailableInteractor(impl: IsExportFormatAvailableInteractorImpl): IsExportFormatAvailableInteractor
+
+    @Binds
+    @Singleton
+    fun bindLanSessionStore(impl: PhoneLanStore): LanSessionStore
+
+    @Binds
+    @Singleton
+    fun bindLanRecordsGateway(impl: RoomLanRecordsGateway): LanRecordsGateway
 }

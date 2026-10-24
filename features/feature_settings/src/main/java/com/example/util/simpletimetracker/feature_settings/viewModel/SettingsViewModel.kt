@@ -197,7 +197,8 @@ class SettingsViewModel @Inject constructor(
         result += additionalDelegate.getViewData()
         result += backupDelegate.getViewData()
         result += exportDelegate.getViewData()
-        result += translatorsDelegate.getViewData()
+        // The translator credits remain in source resources; this custom build hides
+        // the long list from the settings screen without changing any UI layout.
         result += contributorsDelegate.getViewData()
         return result
     }

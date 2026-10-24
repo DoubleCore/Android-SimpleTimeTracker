@@ -9,6 +9,10 @@ import com.example.util.simpletimetracker.domain.record.model.Record
 import com.example.util.simpletimetracker.domain.record.model.RunningRecord
 import com.example.util.simpletimetracker.domain.recordType.model.RecordType
 import com.example.util.simpletimetracker.domain.recordType.repo.RecordTypeRepo
+import com.example.util.simpletimetracker.domain.recordTag.repo.RecordTagRepo
+import com.example.util.simpletimetracker.domain.recordTag.model.RecordTag
+import com.example.util.simpletimetracker.domain.recordTag.model.RecordTagValueType
+import com.example.util.simpletimetracker.feature_dialogs.defaultTypesSelection.interactor.GetDefaultRecordTypesInteractor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
@@ -24,6 +28,8 @@ import javax.inject.Singleton
 class NativeCloudBridge @Inject constructor(
     @ApplicationContext private val context: Context,
     private val types: RecordTypeRepo,
+    private val tags: RecordTagRepo,
+    private val defaultTypes: GetDefaultRecordTypesInteractor,
     private val records: RecordInteractor,
     private val running: RunningRecordInteractor,
     private val updates: RecordsUpdateInteractor,
@@ -35,6 +41,7 @@ class NativeCloudBridge @Inject constructor(
     private var job: Job? = null
     private var store: CloudStore? = null
     private var address = ""
+    private var fixedChineseInitialized = false
     @Volatile var status: String = "云同步未连接"
         private set
 
@@ -50,6 +57,12 @@ class NativeCloudBridge @Inject constructor(
     }
 
     private suspend fun sync() = mutex.withLock {
+        // Local preset setup must work offline, before checking cloud credentials.
+        // The one-time marker also prevents recreating activities the user later removes.
+        if (!fixedChineseInitialized) {
+            initializeChineseCatalog()
+            fixedChineseInitialized = true
+        }
         val config = CloudConfig(context)
         if (config.url.isEmpty()) return@withLock
         if (address != config.url) {
@@ -106,6 +119,82 @@ class NativeCloudBridge @Inject constructor(
         status = (if (complete) "云端已连接" else "补传中／等待服务器升级") + " · 待同步 ${db.pending().size} · 需处理 ${db.rejected().size}"
     }
 
+
+    /**
+     * One-time data-only upgrade: do not change any layout or record IDs.
+     * Fresh installs get Chinese preset activities/tags. Existing standard English
+     * examples are renamed only when their original icon and color still match.
+     * User-made activities and completed records are never deleted.
+     */
+    private suspend fun initializeChineseCatalog() {
+        val prefs = context.getSharedPreferences("timetrak_fixed_chinese", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("initialized_v1", false)) return
+
+        val existing = types.getAll()
+        var changed = false
+        if (existing.isEmpty()) {
+            for (preset in defaultTypes.execute()) {
+                types.add(preset.copy(id = 0L))
+                changed = true
+            }
+        } else {
+            // Exact original built-in sample names AND icons: avoid rewriting custom activities.
+            val renamed = mapOf(
+                "Games" to ("游戏" to "ic_headset_24px"),
+                "Tv" to ("电视" to "ic_desktop_windows_24px"),
+                "Youtube" to ("视频" to "ic_ondemand_video_24px"),
+                "Exercise" to ("运动" to "ic_fitness_center_24px"),
+                "Meditate" to ("冥想" to "ic_lightbulb_outline_24px"),
+                "Read" to ("阅读" to "ic_import_contacts_24px"),
+                "Chores" to ("家务" to "ic_assignment_24px"),
+                "Cleaning" to ("清洁" to "ic_delete_24px"),
+                "Outdoors" to ("户外" to "ic_directions_walk_24px"),
+                "Indoors" to ("室内" to "ic_extension_24px"),
+                "Shopping" to ("购物" to "ic_shopping_cart_24px"),
+                "Cooking" to ("烹饪" to "ic_restaurant_menu_24px"),
+                "Breakfast" to ("早餐" to "ic_free_breakfast_24px"),
+                "Lunch" to ("午餐" to "ic_restaurant_24px"),
+                "Dinner" to ("晚餐" to "ic_local_bar_24px"),
+                "Sleep" to ("睡眠" to "ic_airline_seat_individual_suite_24px"),
+                "Commute" to ("通勤" to "ic_airport_shuttle_24px"),
+                "Work" to ("工作" to "ic_business_center_24px"),
+            )
+            val existingNames = existing.map { it.name }.toMutableSet()
+            for (type in existing) {
+                val (translated, originalIcon) = renamed[type.name] ?: continue
+                if (type.icon != originalIcon || translated in existingNames) continue
+                types.rename(type.id, translated)
+                existingNames.remove(type.name)
+                existingNames.add(translated)
+                changed = true
+            }
+        }
+
+        if (tags.getAll().isEmpty()) {
+            for (name in listOf("计划", "专注", "资料整理", "深度工作",
+                "协作沟通", "复盘", "中断", "临时事务")) {
+                tags.add(RecordTag(
+                    name = name,
+                    icon = "ic_assignment_24px",
+                    color = AppColor(colorId = 3, colorInt = ""),
+                    iconColorSource = 0L,
+                    note = "",
+                    valueType = RecordTagValueType.NONE,
+                    valueSuffix = "",
+                ))
+                changed = true
+            }
+        }
+        check(prefs.edit().putBoolean("initialized_v1", true).commit()) {
+            "保存中文活动初始化状态失败"
+        }
+        if (changed) {
+            updates.send()
+            runningUpdates.sendFullUpdate()
+            externalViews.onAppStart()
+        }
+    }
+
     private fun uuid(device: String, key: String) = UUID.nameUUIDFromBytes("$device:$key".toByteArray()).toString()
     private fun localId(id: String): Long = (UUID.fromString(id).mostSignificantBits and 0x0000FFFFFFFFFFFFL) + 1_000_000_000L
     private fun typeUuid(db: CloudStore, device: String, id: Long): String {
@@ -159,9 +248,11 @@ class NativeCloudBridge @Inject constructor(
         if (key.startsWith("a:")) {
             val local = db.meta("native_type_id:$id", localId(id).toString()).toLong()
             db.setMeta("native_type_id:$id", local.toString()); db.setMeta("native_type:$local", id)
-            types.add(RecordType(local, value.getString("name"), value.getString("icon"),
+            val incoming = RecordType(local, value.getString("name"), value.getString("icon"),
                 AppColor(value.getInt("color_id"), value.getString("color_int")), value.getLong("default_duration"),
-                value.getString("note"), value.getBoolean("hidden")))
+                value.getString("note"), value.getBoolean("hidden"))
+            // Preserve the original Room row and its historical record references.
+            if (types.get(local) == null) types.add(incoming) else types.updateMetadata(incoming)
         } else {
             val type = db.meta("native_type_id:${value.getString("activity_id")}", "").toLongOrNull() ?: return
             val start = value.getLong("started_at")

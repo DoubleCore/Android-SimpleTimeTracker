@@ -22,13 +22,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        try {
-            if (org.doublecore.stt.cloud.CloudConfig(this).url.isEmpty()) {
-                startActivity(android.content.Intent(this, org.doublecore.stt.cloud.CloudSettingsActivity::class.java))
-            }
-        } catch (_: Exception) {
-            startActivity(android.content.Intent(this, org.doublecore.stt.cloud.CloudSettingsActivity::class.java))
-        }
         wearActionResolver.registerResultListeners(this)
 
         setContent {

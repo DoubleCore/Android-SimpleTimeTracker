@@ -7,6 +7,7 @@ enum class SettingsBlock {
     Language,
     Categories,
     Archive,
+    TimeTrakSettings,
     MainBottom,
 
     RatingTop,

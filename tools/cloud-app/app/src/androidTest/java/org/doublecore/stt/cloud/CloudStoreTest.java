@@ -32,6 +32,27 @@ public final class CloudStoreTest extends TestCase {
     private JSONObject event(long seq, String entity, JSONObject data) throws Exception {
         return new JSONObject().put("seq", seq).put("entity", entity).put("data", data);
     }
+    public void testFixedChineseCatalogIsStableAndIdempotent() throws Exception {
+        String device = UUID.randomUUID().toString();
+        FixedActivities.ensure(store, device);
+        assertEquals(FixedActivities.ALL.size(), store.view("activities").size());
+        int queued = store.pending().size();
+        assertEquals(FixedActivities.ALL.size(), queued);
+
+        FixedActivities.ensure(store, device);
+        assertEquals(queued, store.pending().size());
+        for (FixedActivities.Entry entry : FixedActivities.ALL) {
+            assertEquals(entry.name, store.view("activities").get(entry.id).getString("name"));
+            assertEquals(entry.id, UUID.nameUUIDFromBytes(
+                ("timetrak:activity:v1:" + entry.name)
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());
+        }
+        store.close();
+        store = new CloudStore(getContext(), name);
+        FixedActivities.ensure(store, UUID.randomUUID().toString());
+        assertEquals(queued, store.pending().size());
+    }
+
     public void testOfflineStartStopSurviveProcessRestart() throws Exception {
         String activity = UUID.randomUUID().toString(), session = UUID.randomUUID().toString();
         store.enqueue(operation("activity").put("activity_id", activity).put("name", "学习"));

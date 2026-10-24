@@ -53,8 +53,8 @@ class SettingsFragment :
     private val contentAdapter: BaseRecyclerAdapter by lazy {
         BaseRecyclerAdapter(
             *getSettingsAdapterDelegates(
-                onBlockClicked = viewModel::onBlockClicked,
-                onBlockClickedThrottled = throttle(viewModel::onBlockClicked),
+                onBlockClicked = ::onSettingsBlockClicked,
+                onBlockClickedThrottled = throttle(::onSettingsBlockClicked),
                 onSpinnerPositionSelected = viewModel::onSpinnerPositionSelected,
             ).toTypedArray(),
         )
@@ -63,6 +63,17 @@ class SettingsFragment :
     override fun initUi() = with(binding) {
         rvSettingsContent.adapter = contentAdapter
         rvSettingsContent.itemAnimator = null
+    }
+
+    private fun onSettingsBlockClicked(block: SettingsBlock) {
+        if (block == SettingsBlock.TimeTrakSettings) {
+            startActivity(android.content.Intent().setClassName(
+                requireContext(),
+                "org.doublecore.stt.cloud.CloudSettingsActivity",
+            ))
+        } else {
+            viewModel.onBlockClicked(block)
+        }
     }
 
     override fun initViewModel(): Unit = with(binding) {

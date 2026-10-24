@@ -18,15 +18,18 @@ fun SettingsScreen() {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     val context = androidx.compose.ui.platform.LocalContext.current
-    androidx.compose.foundation.layout.Column {
-        androidx.wear.compose.material.CompactChip(
-            onClick = { context.startActivity(android.content.Intent(context, org.doublecore.stt.cloud.CloudSettingsActivity::class.java)) },
-            label = { androidx.wear.compose.material.Text("云同步连接设置") },
-        )
     SettingsList(
         state = state,
         onRefresh = viewModel::onRefresh,
-        onSettingClick = viewModel::onSettingClick,
+        onSettingClick = { type ->
+            if (type == com.example.util.simpletimetracker.features.settings.ui.SettingsItemType.CloudConnection) {
+                context.startActivity(android.content.Intent(
+                    context,
+                    org.doublecore.stt.cloud.CloudSettingsActivity::class.java,
+                ))
+            } else {
+                viewModel.onSettingClick(type)
+            }
+        },
     )
-    }
 }

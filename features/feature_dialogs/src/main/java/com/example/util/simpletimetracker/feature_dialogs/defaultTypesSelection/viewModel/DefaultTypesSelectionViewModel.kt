@@ -66,8 +66,11 @@ class DefaultTypesSelectionViewModel @Inject constructor(
         saveButtonEnabled.set(false)
         viewModelScope.launch {
             recordTypes.filter { it.id in typeIdsSelected }.forEach {
-                // Remove ids for correct adding in database.
-                recordTypeInteractor.add(it.copy(id = 0))
+                // Background first-run initialization may have already created this
+                // Chinese preset. Do not add a duplicate with another Room ID.
+                if (recordTypeInteractor.get(it.name).isEmpty()) {
+                    recordTypeInteractor.add(it.copy(id = 0))
+                }
             }
             if (!prefsInteractor.hasCardOrder()) {
                 prefsInteractor.setCardOrder(CardOrder.COLOR)

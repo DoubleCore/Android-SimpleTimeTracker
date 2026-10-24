@@ -66,11 +66,14 @@ class SettingsFragment :
     }
 
     private fun onSettingsBlockClicked(block: SettingsBlock) {
-        if (block == SettingsBlock.TimeTrakSettings) {
-            startActivity(android.content.Intent().setClassName(
-                requireContext(),
-                "org.doublecore.stt.cloud.CloudSettingsActivity",
-            ))
+        // Both pages live outside this module; resolved by class name to keep it independent.
+        val className = when (block) {
+            SettingsBlock.TimeTrakSettings -> "org.doublecore.stt.cloud.CloudSettingsActivity"
+            SettingsBlock.TimeTrakLan -> "com.example.util.simpletimetracker.lan.LanHostActivity"
+            else -> null
+        }
+        if (className != null) {
+            startActivity(android.content.Intent().setClassName(requireContext(), className))
         } else {
             viewModel.onBlockClicked(block)
         }

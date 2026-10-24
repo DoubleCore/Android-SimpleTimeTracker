@@ -8,6 +8,7 @@ enum class SettingsBlock {
     Categories,
     Archive,
     TimeTrakSettings,
+    TimeTrakLan,
     MainBottom,
 
     RatingTop,

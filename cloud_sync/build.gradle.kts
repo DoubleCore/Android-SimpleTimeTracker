@@ -12,6 +12,10 @@ android {
     lint { abortOnError = true }
 }
 
+dependencies {
+    testImplementation(libs.test.junit)
+}
+
 // Private provisioning is opt-in and supplied outside the repository. Never use in public CI.
 val privateAssets = providers.environmentVariable("STT_PRIVATE_ASSETS_DIR").orNull
 if (privateAssets != null) {

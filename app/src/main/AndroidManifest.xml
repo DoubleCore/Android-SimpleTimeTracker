@@ -2,6 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Runtime prerequisite of the connectedDevice foreground service type (network-connected watch). -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
     <application
         android:name=".TimeTrackerApp"
         android:allowBackup="true"
@@ -12,6 +20,20 @@
         tools:replace="android:theme"
         tools:targetApi="tiramisu">
 
+        <service android:name=".cloud.PhoneCloudRetryJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
+
+        <activity
+            android:name=".lan.LanHostActivity"
+            android:exported="false"
+            android:label="手表 Wi-Fi 直连"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <service
+            android:name=".lan.LanReceiverService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"

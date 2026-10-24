@@ -160,6 +160,11 @@ dependencies {
     androidTestImplementation(libs.uitest.dagger)
     androidTestImplementation(libs.uitest.room)
     androidTestImplementation(libs.uitest.rules)
+
+    testImplementation(libs.test.junit)
+    testImplementation(libs.test.coroutines)
+    // Android's org.json is a stub on the JVM; the real implementation is needed for protocol tests.
+    testImplementation(libs.test.orgJson)
 }
 
 marathon {

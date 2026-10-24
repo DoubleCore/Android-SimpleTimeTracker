@@ -8,6 +8,13 @@ public final class CloudSync {
     public CloudSync() { this(new CloudHttp()); }
     CloudSync(CloudHttp http) { this.http = http; }
     public boolean run(CloudStore store, String url, String token) throws Exception {
+        // Watch's 2-second loop and its persistent JobScheduler recovery job can
+        // otherwise race over the same outbox and cursor within one app process.
+        synchronized (CloudSync.class) {
+            return runLocked(store, url, token);
+        }
+    }
+    private boolean runLocked(CloudStore store, String url, String token) throws Exception {
         CloudHttp.Response health = http.request(url, token, "/v1/health", null);
         requireOk(health); store.verifyWorkspace(health.body);
         boolean deferred = false;

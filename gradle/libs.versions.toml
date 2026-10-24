@@ -49,6 +49,7 @@ espresso = "3.5.0"
 mockito = "5.14.2"
 mockitoKotlin = "5.4.0"
 coroutinesTest = "1.7.1"
+orgJson = "20240303"
 rules = "1.5.0"
 
 [libraries]
@@ -116,6 +117,7 @@ test-junit = { group = "junit", name = "junit", version.ref = "junit" }
 test-mockito = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 test-mockitoKotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
 test-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+test-orgJson = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 # UiTest
 uitest-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitUi" }

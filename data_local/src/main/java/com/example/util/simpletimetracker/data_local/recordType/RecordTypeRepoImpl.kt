@@ -42,6 +42,12 @@ class RecordTypeRepoImpl @Inject constructor(
         afterSourceAccess = { cache = null },
     )
 
+    override suspend fun rename(id: Long, name: String) = mutex.withLockedCache(
+        logMessage = "rename",
+        accessSource = { recordTypeDao.rename(id, name) },
+        afterSourceAccess = { cache = null },
+    )
+
     override suspend fun archive(id: Long) = mutex.withLockedCache(
         logMessage = "archive",
         accessSource = { recordTypeDao.archive(id) },

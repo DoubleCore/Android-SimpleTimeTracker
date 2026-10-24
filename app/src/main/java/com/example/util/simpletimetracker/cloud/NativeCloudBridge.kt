@@ -163,7 +163,7 @@ class NativeCloudBridge @Inject constructor(
             for (type in existing) {
                 val (translated, originalIcon) = renamed[type.name] ?: continue
                 if (type.icon != originalIcon || translated in existingNames) continue
-                types.add(type.copy(name = translated))
+                types.rename(type.id, translated)
                 existingNames.remove(type.name)
                 existingNames.add(translated)
                 changed = true

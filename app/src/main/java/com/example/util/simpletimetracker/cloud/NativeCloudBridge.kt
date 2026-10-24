@@ -248,9 +248,11 @@ class NativeCloudBridge @Inject constructor(
         if (key.startsWith("a:")) {
             val local = db.meta("native_type_id:$id", localId(id).toString()).toLong()
             db.setMeta("native_type_id:$id", local.toString()); db.setMeta("native_type:$local", id)
-            types.add(RecordType(local, value.getString("name"), value.getString("icon"),
+            val incoming = RecordType(local, value.getString("name"), value.getString("icon"),
                 AppColor(value.getInt("color_id"), value.getString("color_int")), value.getLong("default_duration"),
-                value.getString("note"), value.getBoolean("hidden")))
+                value.getString("note"), value.getBoolean("hidden"))
+            // Preserve the original Room row and its historical record references.
+            if (types.get(local) == null) types.add(incoming) else types.updateMetadata(incoming)
         } else {
             val type = db.meta("native_type_id:${value.getString("activity_id")}", "").toLongOrNull() ?: return
             val start = value.getLong("started_at")
